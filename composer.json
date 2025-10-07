@@ -1,0 +1,84 @@
+{
+    "name": "akkusys/as-php-checkup",
+    "description": "Intelligent PHP configuration checker with plugin-based requirement analysis for WordPress",
+    "version": "1.1.0",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "Marc Mirschel",
+            "email": "marc@mirschel.biz",
+            "homepage": "https://mirschel.biz"
+        }
+    ],
+    "homepage": "https://akkusys.de",
+    "support": {
+        "issues": "https://github.com/akkusys/as-php-checkup/issues",
+        "source": "https://github.com/akkusys/as-php-checkup"
+    },
+    "keywords": [
+        "wordpress",
+        "plugin",
+        "php",
+        "configuration",
+        "checkup",
+        "performance",
+        "optimization",
+        "requirements"
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "php": ">=7.4",
+        "composer/installers": "^1.12 || ^2.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.5",
+        "wp-coding-standards/wpcs": "^3.0",
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+        "phpcompatibility/phpcompatibility-wp": "^2.1",
+        "yoast/phpunit-polyfills": "^2.0",
+        "brain/monkey": "^2.6"
+    },
+    "autoload": {
+        "classmap": [
+            "includes/",
+            "admin/"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "AS_PHP_Checkup\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test-coverage": "phpunit --coverage-html tests/coverage",
+        "phpcs": "phpcs --standard=WordPress .",
+        "phpcs-fix": "phpcbf --standard=WordPress .",
+        "install-wp-tests": "bash bin/install-wp-tests.sh wordpress_test root '' localhost latest",
+        "post-install-cmd": [
+            "@composer phpcs-setup"
+        ],
+        "post-update-cmd": [
+            "@composer phpcs-setup"
+        ],
+        "phpcs-setup": [
+            "\"vendor/bin/phpcs\" --config-set installed_paths vendor/wp-coding-standards/wpcs,vendor/phpcompatibility/phpcompatibility-wp",
+            "\"vendor/bin/phpcs\" --config-set default_standard WordPress"
+        ]
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "composer/installers": true,
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    },
+    "extra": {
+        "installer-paths": {
+            "wp-content/plugins/{$name}/": ["type:wordpress-plugin"]
+        }
+    }
+}
