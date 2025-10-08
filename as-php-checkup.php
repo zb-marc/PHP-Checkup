@@ -11,7 +11,7 @@
  * Plugin Name:       AS PHP Checkup
  * Plugin URI:        https://akkusys.de
  * Description:       Intelligent PHP configuration checker with automatic solution provider, one-click fixes, and configuration generators
- * Version:           1.2.0
+ * Version:           1.2.1
  * Requires at least: 5.8
  * Requires PHP:      7.4
  * Author:            Marc Mirschel
@@ -28,7 +28,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants
-define( 'AS_PHP_CHECKUP_VERSION', '1.2.0' );
+define( 'AS_PHP_CHECKUP_VERSION', '1.2.1' );
 define( 'AS_PHP_CHECKUP_PLUGIN_FILE', __FILE__ );
 define( 'AS_PHP_CHECKUP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AS_PHP_CHECKUP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

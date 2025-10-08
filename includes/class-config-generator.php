@@ -108,8 +108,8 @@ class AS_PHP_Checkup_Config_Generator {
 			$content .= "\n";
 		}
 		
-		// OPcache settings
-		if ( isset( $recommended['opcache'] ) ) {
+// OPcache settings - Fixed in 1.2.1: Not included for .user.ini
+		if ( isset( $recommended['opcache'] ) && basename( $file_path ) !== '.user.ini' ) {
 			$has_opcache_issues = false;
 			foreach ( $recommended['opcache'] as $key => $setting ) {
 				if ( isset( $issues[ $key ] ) ) {
@@ -120,6 +120,7 @@ class AS_PHP_Checkup_Config_Generator {
 			
 			if ( $has_opcache_issues ) {
 				$content .= "; OPcache Settings\n";
+				$content .= "; Note: These settings only work in php.ini, not in .user.ini\n";
 				foreach ( $recommended['opcache'] as $key => $setting ) {
 					if ( isset( $issues[ $key ] ) ) {
 						$content .= "{$key} = {$setting['recommended']}\n";

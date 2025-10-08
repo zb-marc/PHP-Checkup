@@ -4,6 +4,7 @@
  *
  * @package AS_PHP_Checkup
  * @since 1.2.0
+ * @version 1.2.1
  */
 
 // Prevent direct access
@@ -41,6 +42,34 @@ class AS_PHP_Checkup_Solution_Provider {
 	 * @var string
 	 */
 	private $hosting_provider = '';
+
+	/**
+	 * Allowed solution types whitelist
+	 *
+	 * @since 1.2.1
+	 * @var array
+	 */
+	private $allowed_solution_types = array(
+		'php_ini',
+		'user_ini',
+		'htaccess',
+		'wp_config',
+		'nginx'
+	);
+
+	/**
+	 * Allowed config types whitelist
+	 *
+	 * @since 1.2.1
+	 * @var array
+	 */
+	private $allowed_config_types = array(
+		'php_ini',
+		'user_ini',
+		'htaccess',
+		'nginx',
+		'wp_config'
+	);
 
 	/**
 	 * Constructor
@@ -153,7 +182,6 @@ class AS_PHP_Checkup_Solution_Provider {
 	 * Get available solutions for current issues
 	 *
 	 * @since 1.2.0
-	 * @param array $results Check results.
 	 * @return array
 	 */
 	public function get_solutions( $results ) {
@@ -380,7 +408,6 @@ class AS_PHP_Checkup_Solution_Provider {
 	 * Collect issues from results
 	 *
 	 * @since 1.2.0
-	 * @param array $results Check results.
 	 * @return array
 	 */
 	private function collect_issues( $results ) {
@@ -485,6 +512,47 @@ class AS_PHP_Checkup_Solution_Provider {
 	}
 
 	/**
+	 * Validate file path for security
+	 *
+	 * @since 1.2.1
+	 * @param string $file_path File path to validate.
+	 * @return bool
+	 */
+	private function validate_file_path( $file_path ) {
+		// Normalize path
+		$file_path = wp_normalize_path( $file_path );
+		$abspath = wp_normalize_path( ABSPATH );
+		
+		// Check for path traversal
+		if ( strpos( $file_path, '..' ) !== false ) {
+			return false;
+		}
+		
+		// Ensure path is within ABSPATH
+		if ( strpos( $file_path, $abspath ) !== 0 ) {
+			return false;
+		}
+		
+		// Check allowed files
+		$allowed_files = array(
+			$abspath . 'wp-config.php',
+			dirname( $abspath ) . '/wp-config.php',
+			$abspath . '.htaccess',
+			$abspath . 'php.ini',
+			$abspath . '.user.ini',
+		);
+		
+		// Also allow backup files
+		foreach ( $allowed_files as $allowed ) {
+			if ( $file_path === $allowed || strpos( $file_path, $allowed . '.backup-' ) === 0 ) {
+				return true;
+			}
+		}
+		
+		return false;
+	}
+
+	/**
 	 * Apply solution
 	 *
 	 * @since 1.2.0
@@ -493,10 +561,19 @@ class AS_PHP_Checkup_Solution_Provider {
 	 * @return array Result.
 	 */
 	public function apply_solution( $solution_type, $issues ) {
+		// Validate solution type
+		if ( ! in_array( $solution_type, $this->allowed_solution_types, true ) ) {
+			return array(
+				'success' => false,
+				'message' => __( 'Invalid solution type', 'as-php-checkup' ),
+			);
+		}
+		
 		$generator = AS_PHP_Checkup_Config_Generator::get_instance();
 		
 		switch ( $solution_type ) {
 			case 'php_ini':
+			case 'user_ini':
 				return $this->apply_php_ini_solution( $generator, $issues );
 				
 			case 'htaccess':
@@ -530,30 +607,54 @@ class AS_PHP_Checkup_Solution_Provider {
 			$file_path = ABSPATH . 'php.ini';
 		}
 		
+		// Validate path
+		if ( ! $this->validate_file_path( $file_path ) ) {
+			return array(
+				'success' => false,
+				'message' => __( 'Invalid file path', 'as-php-checkup' ),
+			);
+		}
+		
 		// Backup existing file
 		if ( file_exists( $file_path ) ) {
 			$backup_path = $file_path . '.backup-' . date( 'Y-m-d-H-i-s' );
-			copy( $file_path, $backup_path );
+			if ( ! $this->validate_file_path( $backup_path ) || ! copy( $file_path, $backup_path ) ) {
+				return array(
+					'success' => false,
+					'message' => __( 'Failed to create backup', 'as-php-checkup' ),
+				);
+			}
 		}
 		
-		// Write new content
-		$result = file_put_contents( $file_path, $content );
+		// Create temporary file first (atomic write)
+		$temp_file = $file_path . '.tmp.' . uniqid();
+		$result = file_put_contents( $temp_file, $content, LOCK_EX );
 		
-		if ( false !== $result ) {
+		if ( false === $result ) {
+			@unlink( $temp_file );
 			return array(
-				'success' => true,
-				'message' => sprintf(
-					/* translators: %s: file path */
-					__( 'PHP configuration saved to %s', 'as-php-checkup' ),
-					$file_path
-				),
-				'file_path' => $file_path,
+				'success' => false,
+				'message' => __( 'Failed to write configuration file', 'as-php-checkup' ),
+			);
+		}
+		
+		// Atomically move temp file to target
+		if ( ! rename( $temp_file, $file_path ) ) {
+			@unlink( $temp_file );
+			return array(
+				'success' => false,
+				'message' => __( 'Failed to save configuration file', 'as-php-checkup' ),
 			);
 		}
 		
 		return array(
-			'success' => false,
-			'message' => __( 'Failed to write PHP configuration file', 'as-php-checkup' ),
+			'success' => true,
+			'message' => sprintf(
+				/* translators: %s: file path */
+				__( 'PHP configuration saved to %s', 'as-php-checkup' ),
+				$file_path
+			),
+			'file_path' => $file_path,
 		);
 	}
 
@@ -567,6 +668,15 @@ class AS_PHP_Checkup_Solution_Provider {
 	 */
 	private function apply_htaccess_solution( $generator, $issues ) {
 		$htaccess_path = ABSPATH . '.htaccess';
+		
+		// Validate path
+		if ( ! $this->validate_file_path( $htaccess_path ) ) {
+			return array(
+				'success' => false,
+				'message' => __( 'Invalid file path', 'as-php-checkup' ),
+			);
+		}
+		
 		$directives = $generator->generate_htaccess_directives( $issues );
 		
 		// Read existing .htaccess
@@ -576,7 +686,12 @@ class AS_PHP_Checkup_Solution_Provider {
 			
 			// Backup
 			$backup_path = $htaccess_path . '.backup-' . date( 'Y-m-d-H-i-s' );
-			copy( $htaccess_path, $backup_path );
+			if ( ! $this->validate_file_path( $backup_path ) || ! copy( $htaccess_path, $backup_path ) ) {
+				return array(
+					'success' => false,
+					'message' => __( 'Failed to create backup', 'as-php-checkup' ),
+				);
+			}
 		}
 		
 		// Check if our block already exists
@@ -592,20 +707,31 @@ class AS_PHP_Checkup_Solution_Provider {
 			$new_content = $directives . "\n\n" . $existing_content;
 		}
 		
-		// Write updated content
-		$result = file_put_contents( $htaccess_path, $new_content );
+		// Create temporary file first
+		$temp_file = $htaccess_path . '.tmp.' . uniqid();
+		$result = file_put_contents( $temp_file, $new_content, LOCK_EX );
 		
-		if ( false !== $result ) {
+		if ( false === $result ) {
+			@unlink( $temp_file );
 			return array(
-				'success' => true,
-				'message' => __( '.htaccess file updated successfully', 'as-php-checkup' ),
-				'file_path' => $htaccess_path,
+				'success' => false,
+				'message' => __( 'Failed to write .htaccess file', 'as-php-checkup' ),
+			);
+		}
+		
+		// Atomically move temp file to target
+		if ( ! rename( $temp_file, $htaccess_path ) ) {
+			@unlink( $temp_file );
+			return array(
+				'success' => false,
+				'message' => __( 'Failed to update .htaccess file', 'as-php-checkup' ),
 			);
 		}
 		
 		return array(
-			'success' => false,
-			'message' => __( 'Failed to update .htaccess file', 'as-php-checkup' ),
+			'success' => true,
+			'message' => __( '.htaccess file updated successfully', 'as-php-checkup' ),
+			'file_path' => $htaccess_path,
 		);
 	}
 
@@ -630,12 +756,25 @@ class AS_PHP_Checkup_Solution_Provider {
 			);
 		}
 		
+		// Validate path
+		if ( ! $this->validate_file_path( $config_path ) ) {
+			return array(
+				'success' => false,
+				'message' => __( 'Invalid file path', 'as-php-checkup' ),
+			);
+		}
+		
 		// Read existing config
 		$config_content = file_get_contents( $config_path );
 		
 		// Backup
 		$backup_path = $config_path . '.backup-' . date( 'Y-m-d-H-i-s' );
-		copy( $config_path, $backup_path );
+		if ( ! $this->validate_file_path( $backup_path ) || ! copy( $config_path, $backup_path ) ) {
+			return array(
+				'success' => false,
+				'message' => __( 'Failed to create backup', 'as-php-checkup' ),
+			);
+		}
 		
 		// Generate constants
 		$constants = $generator->generate_wp_config_constants( $issues );
@@ -676,20 +815,31 @@ class AS_PHP_Checkup_Solution_Provider {
 		              $code_to_insert . 
 		              substr( $config_content, $insert_position );
 		
-		// Write updated content
-		$result = file_put_contents( $config_path, $new_content );
+		// Create temporary file first
+		$temp_file = $config_path . '.tmp.' . uniqid();
+		$result = file_put_contents( $temp_file, $new_content, LOCK_EX );
 		
-		if ( false !== $result ) {
+		if ( false === $result ) {
+			@unlink( $temp_file );
 			return array(
-				'success' => true,
-				'message' => __( 'wp-config.php updated successfully', 'as-php-checkup' ),
-				'file_path' => $config_path,
+				'success' => false,
+				'message' => __( 'Failed to write wp-config.php', 'as-php-checkup' ),
+			);
+		}
+		
+		// Atomically move temp file to target
+		if ( ! rename( $temp_file, $config_path ) ) {
+			@unlink( $temp_file );
+			return array(
+				'success' => false,
+				'message' => __( 'Failed to update wp-config.php', 'as-php-checkup' ),
 			);
 		}
 		
 		return array(
-			'success' => false,
-			'message' => __( 'Failed to update wp-config.php', 'as-php-checkup' ),
+			'success' => true,
+			'message' => __( 'wp-config.php updated successfully', 'as-php-checkup' ),
+			'file_path' => $config_path,
 		);
 	}
 
@@ -700,7 +850,7 @@ class AS_PHP_Checkup_Solution_Provider {
 	 * @return void
 	 */
 	public function ajax_apply_solution() {
-		// Verify nonce
+		// Verify nonce with action-specific validation
 		if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'as_php_checkup_nonce' ) ) {
 			wp_send_json_error( __( 'Invalid nonce', 'as-php-checkup' ) );
 		}
@@ -711,6 +861,11 @@ class AS_PHP_Checkup_Solution_Provider {
 		}
 		
 		$solution_type = isset( $_POST['solution_type'] ) ? sanitize_text_field( wp_unslash( $_POST['solution_type'] ) ) : '';
+		
+		// Validate solution type against whitelist
+		if ( ! in_array( $solution_type, $this->allowed_solution_types, true ) ) {
+			wp_send_json_error( __( 'Invalid solution type', 'as-php-checkup' ) );
+		}
 		
 		// Get current issues
 		$checkup = AS_PHP_Checkup::get_instance();
@@ -745,6 +900,11 @@ class AS_PHP_Checkup_Solution_Provider {
 		}
 		
 		$config_type = isset( $_POST['config_type'] ) ? sanitize_text_field( wp_unslash( $_POST['config_type'] ) ) : '';
+		
+		// Validate config type against whitelist
+		if ( ! in_array( $config_type, $this->allowed_config_types, true ) ) {
+			wp_send_json_error( __( 'Invalid configuration type', 'as-php-checkup' ) );
+		}
 		
 		// Get current issues
 		$checkup = AS_PHP_Checkup::get_instance();

@@ -642,18 +642,16 @@
 		},
 
 		/**
-		 * Escape HTML
-		 */
-		escapeHtml: function(text) {
-			var map = {
-				'&': '&amp;',
-				'<': '&lt;',
-				'>': '&gt;',
-				'"': '&quot;',
-				"'": '&#039;'
-			};
-			
-			return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+	 	* Escape HTML - Fixed XSS vulnerability
+	 	* Uses browser's built-in text node creation for safe escaping
+	 	*
+	 	* @since 1.2.1
+	 	*/
+			escapeHtml: function(text) {
+		// Create a text node which automatically escapes HTML
+			var div = document.createElement('div');
+			div.textContent = text;
+			return div.innerHTML;
 		},
 
 		/**
