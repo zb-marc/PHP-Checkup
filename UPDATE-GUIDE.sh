@@ -1,0 +1,50 @@
+#!/bin/bash
+# AS PHP Checkup - Update Script v1.3.3
+# Dieses Script zeigt die wichtigsten Änderungen
+
+echo "==================================="
+echo "AS PHP Checkup - Critical Fixes"
+echo "Version: 1.3.2 → 1.3.3"
+echo "==================================="
+echo ""
+
+# Liste der kritisch geänderten Dateien
+echo "📁 KRITISCH GEÄNDERTE DATEIEN:"
+echo "--------------------------------"
+echo "✅ as-php-checkup.php"
+echo "   - Plugin-Aktivierung korrigiert (Zeile 184-227)"
+echo "   - Debug-Konstante definiert (Zeile 37-40)"
+echo "   - Backup-Cleanup hinzugefügt"
+echo ""
+echo "✅ includes/class-cache-manager.php"
+echo "   - preload_cache() mit Klassen-Check (Zeile 326-340)"
+echo ""
+echo "✅ includes/class-cli-command.php"
+echo "   - CSV-Injection-Schutz (neue Methode sanitize_csv_field)"
+echo ""
+echo "✅ includes/class-rest-controller.php"
+echo "   - CSV-Injection-Schutz"
+echo "   - Verbesserte Error-Handling"
+echo ""
+
+echo "⚠️  WICHTIG:"
+echo "------------"
+echo "1. Erstellen Sie ein BACKUP vor dem Update!"
+echo "2. Deaktivieren Sie das alte Plugin"
+echo "3. Löschen Sie die alten Plugin-Dateien"
+echo "4. Laden Sie die neuen Dateien hoch"
+echo "5. Aktivieren Sie das Plugin neu"
+echo ""
+
+echo "📋 TEST-CHECKLISTE:"
+echo "-------------------"
+echo "[ ] Plugin aktiviert ohne Fehler"
+echo "[ ] Admin-Seite lädt korrekt"
+echo "[ ] REST API funktioniert"
+echo "[ ] WP-CLI Befehle funktionieren"
+echo "[ ] Export (CSV/JSON) funktioniert"
+echo "[ ] Keine PHP-Fehler im Debug-Log"
+echo ""
+
+echo "Bei Problemen: GitHub Issue erstellen"
+echo "https://github.com/zb-marc/PHP-Checkup/issues"

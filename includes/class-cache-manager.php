@@ -324,6 +324,12 @@ class AS_PHP_Checkup_Cache_Manager {
 	 * @return void
 	 */
 	public function preload_cache() {
+		// Only preload if classes are available
+		if ( ! class_exists( 'AS_PHP_Checkup' ) || ! class_exists( 'AS_PHP_Checkup_Plugin_Analyzer' ) ) {
+			// Classes not loaded yet, skip preloading
+			return;
+		}
+		
 		// Preload system info
 		if ( false === $this->get( 'system_info' ) ) {
 			$checkup = AS_PHP_Checkup::get_instance();

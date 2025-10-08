@@ -11,7 +11,7 @@
  * Plugin Name:       AS PHP Checkup
  * Plugin URI:        https://akkusys.de
  * Description:       Intelligent PHP configuration checker with automatic solution provider, one-click fixes, and configuration generators
- * Version:           1.3.2
+ * Version:           1.3.3
  * Requires at least: 5.8
  * Requires PHP:      7.4
  * Author:            Marc Mirschel
@@ -28,11 +28,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants
-define( 'AS_PHP_CHECKUP_VERSION', '1.3.2' );
+define( 'AS_PHP_CHECKUP_VERSION', '1.3.3' );
 define( 'AS_PHP_CHECKUP_PLUGIN_FILE', __FILE__ );
 define( 'AS_PHP_CHECKUP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AS_PHP_CHECKUP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'AS_PHP_CHECKUP_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
+
+// Define debug constant if not already defined
+if ( ! defined( 'AS_PHP_CHECKUP_DEBUG' ) ) {
+	define( 'AS_PHP_CHECKUP_DEBUG', defined( 'WP_DEBUG' ) && WP_DEBUG );
+}
 
 /**
  * Autoloader for plugin classes
@@ -98,6 +103,7 @@ add_action( 'plugins_loaded', 'as_php_checkup_load_textdomain' );
  */
 function as_php_checkup_includes() {
 	// Security trait - New in 1.3.0
+	require_once AS_PHP_CHECKUP_PLUGIN_DIR . 'includes/trait-security.php';
 	require_once AS_PHP_CHECKUP_PLUGIN_DIR . 'includes/class-solution-provider-secure.php';
 	
 	// Cache Manager - New in 1.3.0
@@ -182,6 +188,13 @@ add_action( 'rest_api_init', 'as_php_checkup_rest_api_init' );
  * @return void
  */
 function as_php_checkup_activate() {
+	// Manually load required classes during activation
+	require_once AS_PHP_CHECKUP_PLUGIN_DIR . 'includes/trait-security.php';
+	require_once AS_PHP_CHECKUP_PLUGIN_DIR . 'includes/class-solution-provider-secure.php';
+	require_once AS_PHP_CHECKUP_PLUGIN_DIR . 'includes/class-checkup.php';
+	require_once AS_PHP_CHECKUP_PLUGIN_DIR . 'includes/class-plugin-analyzer.php';
+	require_once AS_PHP_CHECKUP_PLUGIN_DIR . 'includes/class-cache-manager.php';
+	
 	// Set default options if not exists
 	if ( ! get_option( 'as_php_checkup_last_check' ) ) {
 		update_option( 'as_php_checkup_last_check', current_time( 'timestamp' ) );
@@ -200,6 +213,11 @@ function as_php_checkup_activate() {
 	// Schedule daily plugin analysis
 	if ( ! wp_next_scheduled( 'as_php_checkup_daily_analysis' ) ) {
 		wp_schedule_event( current_time( 'timestamp' ), 'daily', 'as_php_checkup_daily_analysis' );
+	}
+	
+	// Schedule backup cleanup
+	if ( ! wp_next_scheduled( 'as_php_checkup_cleanup_backups' ) ) {
+		wp_schedule_event( current_time( 'timestamp' ), 'daily', 'as_php_checkup_cleanup_backups' );
 	}
 	
 	// Clear any cached data
@@ -224,10 +242,13 @@ register_activation_hook( __FILE__, 'as_php_checkup_activate' );
 function as_php_checkup_deactivate() {
 	// Clean up scheduled tasks
 	wp_clear_scheduled_hook( 'as_php_checkup_daily_analysis' );
+	wp_clear_scheduled_hook( 'as_php_checkup_cleanup_backups' );
 	
-	// Clear cache - New in 1.3.0
-	$cache_manager = AS_PHP_Checkup_Cache_Manager::get_instance();
-	$cache_manager->clear_all_cache();
+	// Clear cache if Cache Manager is available
+	if ( class_exists( 'AS_PHP_Checkup_Cache_Manager' ) ) {
+		$cache_manager = AS_PHP_Checkup_Cache_Manager::get_instance();
+		$cache_manager->clear_all_cache();
+	}
 }
 register_deactivation_hook( __FILE__, 'as_php_checkup_deactivate' );
 

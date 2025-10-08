@@ -3,28 +3,29 @@
 [![WordPress Version](https://img.shields.io/badge/WordPress-5.8%2B-blue.svg)](https://wordpress.org/)
 [![PHP Version](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net/)
 [![License](https://img.shields.io/badge/License-GPL%20v2%2B-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
-[![Version](https://img.shields.io/badge/Version-1.2.0-orange.svg)](https://akkusys.de)
+[![Version](https://img.shields.io/badge/Version-1.3.3-orange.svg)](https://akkusys.de)
 
-**Intelligent PHP configuration checker with automatic solution provider, one-click fixes, and configuration generators for WordPress.**
+**Intelligenter PHP-Konfigurations-Checker mit automatischen Lösungen, One-Click-Fixes und Konfigurations-Generatoren für WordPress.**
 
-## 🚀 Features
+## 🚀 Hauptfunktionen
 
-### Core Features
-- **Comprehensive PHP Configuration Check**: Analyzes 30+ critical PHP settings
-- **Intelligent Plugin Analysis**: Scans active plugins for PHP requirements and adjusts recommendations
-- **One-Click Solutions**: Automatically applies fixes to your server configuration
-- **Configuration Generator**: Creates optimized config files for various server types
-- **Server Detection**: Automatically identifies your hosting provider and server type
-- **Health Score Dashboard**: Visual representation of your PHP configuration health
-- **Multi-Environment Support**: Works with Apache, NGINX, LiteSpeed, IIS, and more
+### Kernfunktionen
+- **Umfassende PHP-Konfigurations-Prüfung**: Analysiert 30+ kritische PHP-Einstellungen
+- **Intelligente Plugin-Analyse**: Scannt aktive Plugins nach PHP-Anforderungen und passt Empfehlungen an
+- **One-Click-Lösungen**: Wendet automatisch Fixes auf Ihre Server-Konfiguration an
+- **Konfigurations-Generator**: Erstellt optimierte Config-Dateien für verschiedene Server-Typen
+- **Server-Erkennung**: Identifiziert automatisch Ihren Hosting-Anbieter und Server-Typ
+- **Health-Score-Dashboard**: Visuelle Darstellung Ihrer PHP-Konfigurations-Gesundheit
+- **Multi-Environment-Support**: Funktioniert mit Apache, NGINX, LiteSpeed, IIS und mehr
+- **Effizientes Caching**: 5-Minuten-Cache für Performance-Optimierung
 
-### Solution Types
-- **Automatic Fixes**: Direct application of PHP configurations
-- **Configuration Downloads**: Generate ready-to-use config files
-- **Hosting-Specific Guides**: Step-by-step instructions for major hosting providers
-- **Advanced Configurations**: Docker, Kubernetes, and custom setups
+### Lösungstypen
+- **Automatische Fixes**: Direkte Anwendung von PHP-Konfigurationen
+- **Konfigurations-Downloads**: Generiert einsatzbereite Config-Dateien
+- **Hosting-spezifische Anleitungen**: Schritt-für-Schritt-Anleitungen für große Hosting-Anbieter
+- **Erweiterte Konfigurationen**: Docker, Kubernetes und benutzerdefinierte Setups
 
-### Supported Hosting Providers
+### Unterstützte Hosting-Anbieter
 - WP Engine
 - Kinsta
 - SiteGround
@@ -44,25 +45,26 @@
 - cPanel
 - Generic/Custom Hosting
 
-## 📋 Requirements
+## 📋 Systemanforderungen
 
-- WordPress 5.8 or higher
-- PHP 7.4 or higher
-- Administrator access to WordPress
+- WordPress 5.8 oder höher
+- PHP 7.4 oder höher
+- Administrator-Zugang zu WordPress
+- Schreibrechte für Konfigurations-Dateien (optional für Auto-Fixes)
 
 ## 📦 Installation
 
 ### Via WordPress Admin
-1. Download the latest release from [GitHub Releases](https://github.com/zb-marc/PHP-Checkup/releases)
-2. Navigate to **Plugins → Add New** in your WordPress admin
-3. Click **Upload Plugin** and select the downloaded ZIP file
-4. Click **Install Now** and then **Activate**
+1. Laden Sie die neueste Version von [GitHub Releases](https://github.com/zb-marc/PHP-Checkup/releases) herunter
+2. Navigieren Sie zu **Plugins → Installieren** in Ihrem WordPress Admin
+3. Klicken Sie auf **Plugin hochladen** und wählen Sie die heruntergeladene ZIP-Datei
+4. Klicken Sie auf **Jetzt installieren** und dann **Aktivieren**
 
 ### Via FTP
-1. Download and extract the plugin ZIP file
-2. Upload the `as-php-checkup` folder to `/wp-content/plugins/`
-3. Navigate to **Plugins** in your WordPress admin
-4. Locate **AS PHP Checkup** and click **Activate**
+1. Laden Sie die Plugin-ZIP-Datei herunter und entpacken Sie sie
+2. Laden Sie den `as-php-checkup` Ordner nach `/wp-content/plugins/` hoch
+3. Navigieren Sie zu **Plugins** in Ihrem WordPress Admin
+4. Suchen Sie **AS PHP Checkup** und klicken Sie auf **Aktivieren**
 
 ### Via Composer
 ```bash
@@ -74,67 +76,67 @@ composer require akkusys/as-php-checkup
 wp plugin install https://github.com/zb-marc/PHP-Checkup/archive/main.zip --activate
 ```
 
-## 🎯 Usage
+## 🎯 Verwendung
 
-### Basic Usage
+### Grundlegende Verwendung
 
-1. **Access the Tool**: Navigate to **Tools → PHP Checkup** in your WordPress admin
-2. **Review Status**: Check your overall health score and identified issues
-3. **Apply Solutions**: Click on available solutions to fix issues automatically
-4. **Download Configs**: Generate configuration files for manual implementation
+1. **Tool aufrufen**: Navigieren Sie zu **Werkzeuge → PHP Checkup** in Ihrem WordPress Admin
+2. **Status überprüfen**: Prüfen Sie Ihren Gesundheits-Score und identifizierte Probleme
+3. **Lösungen anwenden**: Klicken Sie auf verfügbare Lösungen, um Probleme automatisch zu beheben
+4. **Configs herunterladen**: Generieren Sie Konfigurations-Dateien zur manuellen Implementierung
 
-### Dashboard Widget
+### Dashboard-Widget
 
-The plugin adds a widget to your WordPress dashboard showing:
-- Current PHP version and status
-- Critical issues count
-- Quick access to the full checkup page
-- Auto-refresh capability
+Das Plugin fügt ein Widget zu Ihrem WordPress-Dashboard hinzu, das zeigt:
+- Aktuelle PHP-Version und Status
+- Anzahl kritischer Probleme
+- Schnellzugriff auf die vollständige Checkup-Seite
+- Auto-Refresh-Fähigkeit
 
-### WP-CLI Commands
+### WP-CLI-Befehle
 
 ```bash
-# Check PHP configuration status
+# PHP-Konfigurations-Status prüfen
 wp as-php-checkup status
 
-# Analyze plugin requirements
+# Plugin-Anforderungen analysieren
 wp as-php-checkup analyze
 
-# Get system information
+# System-Informationen abrufen
 wp as-php-checkup system
 
-# Export detailed report
+# Detaillierten Bericht exportieren
 wp as-php-checkup export --format=csv
 
-# Quick check with exit codes for CI/CD
+# Schnell-Check mit Exit-Codes für CI/CD
 wp as-php-checkup check
 ```
 
 ### REST API Endpoints
 
 ```javascript
-// Get current status and health score
+// Aktuellen Status und Gesundheits-Score abrufen
 GET /wp-json/as-php-checkup/v1/status
 
-// Get system information
+// System-Informationen abrufen
 GET /wp-json/as-php-checkup/v1/system-info
 
-// Get plugin requirements analysis
+// Plugin-Anforderungs-Analyse abrufen
 GET /wp-json/as-php-checkup/v1/plugin-analysis
 
-// Refresh the check
+// Check aktualisieren
 POST /wp-json/as-php-checkup/v1/refresh
 
-// Export report (JSON/CSV)
+// Bericht exportieren (JSON/CSV)
 GET /wp-json/as-php-checkup/v1/export?format=csv
 ```
 
-## 🔧 Configuration Options
+## 🔧 Konfigurations-Optionen
 
-### Checked PHP Settings
+### Geprüfte PHP-Einstellungen
 
-#### Basic Settings
-- PHP Version
+#### Basis-Einstellungen
+- PHP-Version
 - Memory Limit
 - Max Execution Time
 - Max Input Time
@@ -142,12 +144,12 @@ GET /wp-json/as-php-checkup/v1/export?format=csv
 - Post Max Size
 - Upload Max Filesize
 
-#### Session Configuration
+#### Session-Konfiguration
 - Session Auto Start
 - Session GC Maxlifetime
 - Session Save Handler
 
-#### OPcache Settings
+#### OPcache-Einstellungen
 - OPcache Enable
 - OPcache Memory Consumption
 - OPcache Interned Strings Buffer
@@ -155,156 +157,183 @@ GET /wp-json/as-php-checkup/v1/export?format=csv
 - OPcache Revalidate Frequency
 - OPcache Enable CLI
 
-#### Performance Settings
+#### Performance-Einstellungen
 - Realpath Cache Size
 - Realpath Cache TTL
 - Output Buffering
 - Zlib Output Compression
 
-## 🛠️ Advanced Features
+## ⏱️ Cache-System
 
-### Automatic Plugin Analysis
+Das Plugin verwendet ein intelligentes Cache-System zur Performance-Optimierung:
 
-The plugin automatically scans your active plugins for:
-- Required PHP version
-- Memory requirements
-- PHP extension dependencies
-- Specific configuration needs
+| Cache-Typ | Dauer | Beschreibung |
+|-----------|-------|--------------|
+| PHP-Checks | 5 Minuten | Konfigurations-Prüfungen |
+| System-Info | 30 Minuten | Server- und System-Details |
+| Plugin-Analyse | 24 Stunden | Plugin-Anforderungen |
 
-### One-Click Solutions
+**Hinweis**: Der "Refresh Now" Button umgeht den Cache und erzwingt eine neue Prüfung.
 
-Available automatic fixes:
-- **php.ini Generation**: Creates optimized PHP configuration
-- **.htaccess Updates**: Adds PHP directives for Apache/LiteSpeed
-- **wp-config.php Constants**: Inserts WordPress memory constants
-- **NGINX Configurations**: Generates server block configs
+## 🛠️ Erweiterte Funktionen
 
-### Configuration Export Formats
+### Automatische Plugin-Analyse
 
-- **php.ini**: Standard PHP configuration file
-- **.user.ini**: Per-directory PHP configuration
-- **.htaccess**: Apache/LiteSpeed directives
-- **NGINX Config**: Server block configuration
-- **Docker Compose**: Container configuration
-- **Kubernetes ConfigMap**: K8s deployment configs
-- **wp-config Constants**: WordPress-specific settings
+Das Plugin scannt automatisch Ihre aktiven Plugins nach:
+- Erforderlicher PHP-Version
+- Speicheranforderungen
+- PHP-Extension-Abhängigkeiten
+- Spezifischen Konfigurations-Bedürfnissen
 
-## 🔒 Security
+### One-Click-Lösungen
 
-The plugin implements multiple security measures:
-- Nonce verification on all AJAX requests
-- Capability checks (`manage_options`)
-- Input sanitization and validation
-- Output escaping
-- File write permission checks
-- Automatic backup creation before modifications
+Verfügbare automatische Fixes:
+- **php.ini-Generierung**: Erstellt optimierte PHP-Konfiguration
+- **.htaccess-Updates**: Fügt PHP-Direktiven für Apache/LiteSpeed hinzu
+- **wp-config.php-Konstanten**: Fügt WordPress-Speicher-Konstanten ein
+- **NGINX-Konfigurationen**: Generiert Server-Block-Configs
 
-## 🌍 Internationalization
+### Konfigurations-Export-Formate
 
-The plugin is fully translatable and includes:
-- Text domain: `as-php-checkup`
-- POT file for translations
-- Support for RTL languages
+- **php.ini**: Standard PHP-Konfigurations-Datei
+- **.user.ini**: Per-Directory PHP-Konfiguration
+- **.htaccess**: Apache/LiteSpeed-Direktiven
+- **NGINX Config**: Server-Block-Konfiguration
+- **Docker Compose**: Container-Konfiguration
+- **Kubernetes ConfigMap**: K8s Deployment-Configs
+- **wp-config-Konstanten**: WordPress-spezifische Einstellungen
 
-### Available Translations
-- English (default)
-- German (de_DE) - Coming soon
-- French (fr_FR) - Coming soon
-- Spanish (es_ES) - Coming soon
+## 🔒 Sicherheit
 
-## 📊 Performance Impact
+Das Plugin implementiert mehrere Sicherheitsmaßnahmen:
+- Nonce-Verifizierung bei allen AJAX-Anfragen
+- Capability-Checks (`manage_options`)
+- Input-Sanitization und -Validierung
+- Output-Escaping
+- Datei-Schreibberechtigungs-Prüfungen
+- Automatische Backup-Erstellung vor Änderungen
+- CSV-Injection-Schutz in Exporten
 
-- **Lightweight**: < 500KB total size
-- **Cached Results**: Reduces server load
-- **Lazy Loading**: Only loads assets on plugin pages
-- **Optimized Queries**: Minimal database usage
-- **Background Processing**: Plugin analysis runs asynchronously
+## 🌍 Internationalisierung
 
-## 🐛 Troubleshooting
+Das Plugin ist vollständig übersetzbar und beinhaltet:
+- Text Domain: `as-php-checkup`
+- POT-Datei für Übersetzungen
+- Unterstützung für RTL-Sprachen
 
-### Common Issues
+### Verfügbare Übersetzungen
+- Englisch (Standard)
+- Deutsch (de_DE) - In Vorbereitung
+- Französisch (fr_FR) - In Vorbereitung
+- Spanisch (es_ES) - In Vorbereitung
 
-**Issue**: Can't apply automatic fixes
-- **Solution**: Check file permissions for php.ini, .htaccess, and wp-config.php
+## 📊 Performance-Auswirkungen
 
-**Issue**: Plugin analysis not showing
-- **Solution**: Click "Re-Analyze Plugins" button to trigger manual scan
+- **Leichtgewicht**: < 500KB Gesamtgröße
+- **Gecachte Ergebnisse**: Reduziert Server-Last
+- **Lazy Loading**: Lädt Assets nur auf Plugin-Seiten
+- **Optimierte Abfragen**: Minimale Datenbank-Nutzung
+- **Hintergrund-Verarbeitung**: Plugin-Analyse läuft asynchron
 
-**Issue**: Solutions not appearing
-- **Solution**: Ensure you have at least one non-optimal setting
+## 🐛 Fehlerbehebung
 
-**Issue**: REST API not responding
-- **Solution**: Check permalinks settings and REST API availability
+### Häufige Probleme
 
-### Debug Mode
+**Problem**: Kann keine automatischen Fixes anwenden
+- **Lösung**: Prüfen Sie Datei-Berechtigungen für php.ini, .htaccess und wp-config.php
 
-Enable debug logging by adding to `wp-config.php`:
+**Problem**: Plugin-Analyse wird nicht angezeigt
+- **Lösung**: Klicken Sie auf "Plugins neu analysieren", um manuelle Analyse auszulösen
+
+**Problem**: Lösungen erscheinen nicht
+- **Lösung**: Stellen Sie sicher, dass Sie mindestens eine nicht-optimale Einstellung haben
+
+**Problem**: REST API antwortet nicht
+- **Lösung**: Prüfen Sie Permalink-Einstellungen und REST API-Verfügbarkeit
+
+### Debug-Modus
+
+Aktivieren Sie Debug-Logging durch Hinzufügen zu `wp-config.php`:
 ```php
 define( 'AS_PHP_CHECKUP_DEBUG', true );
 ```
 
-## 🤝 Contributing
+## 🤝 Mitwirken
 
-Contributions are welcome! Please follow these guidelines:
+Beiträge sind willkommen! Bitte folgen Sie diesen Richtlinien:
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/NewFeature`)
-3. Commit your changes (`git commit -m 'Add NewFeature'`)
-4. Push to the branch (`git push origin feature/NewFeature`)
-5. Open a Pull Request
+1. Forken Sie das Repository
+2. Erstellen Sie einen Feature-Branch (`git checkout -b feature/NeuesFeature`)
+3. Committen Sie Ihre Änderungen (`git commit -m 'Add NeuesFeature'`)
+4. Pushen Sie zum Branch (`git push origin feature/NeuesFeature`)
+5. Öffnen Sie einen Pull Request
 
-### Development Setup
+### Entwicklungs-Setup
 
 ```bash
-# Clone repository
+# Repository klonen
 git clone https://github.com/zb-marc/PHP-Checkup.git
 
-# Install dependencies
+# Abhängigkeiten installieren
 cd PHP-Checkup
 composer install
 npm install
 
-# Build assets
+# Assets bauen
 npm run build
 
-# Run tests
+# Tests ausführen
 composer test
 npm test
 
-# Check coding standards
+# Coding-Standards prüfen
 composer phpcs
 npm run lint
 ```
 
 ## 📝 Changelog
 
-### Version 1.2.0 (2025-01-XX)
-- ✨ Added automatic solution provider
-- ✨ One-click configuration fixes
-- ✨ Server and hosting detection
-- ✨ Advanced configuration generators
-- ✨ Configuration preview modal
-- 🎨 Improved UI with solution cards
-- 🔧 Added write permission checks
+### Version 1.3.3 (2025-01-08)
+- 🐛 **BUGFIX:** Fatal Error bei Plugin-Aktivierung behoben
+- 🐛 **BUGFIX:** Cache-System komplett überarbeitet und korrigiert
+- 🐛 **BUGFIX:** PHP Parse Error in class-checkup.php behoben
+- 🔒 **SECURITY:** CSV-Injection-Schutz implementiert
+- 🔒 **SECURITY:** Debug-Konstante korrekt definiert
+- ✨ **FEATURE:** Automatische Backup-Bereinigung nach 7 Tagen
+- ⚡ **IMPROVEMENT:** Cache-Manager für bessere Performance
+- ⚡ **IMPROVEMENT:** Verbesserte Error-Behandlung in REST API
 
-### Version 1.1.0 (2024-12-XX)
-- ✨ Added plugin requirements analyzer
-- ✨ REST API implementation
-- ✨ WP-CLI command support
-- ✨ Dashboard widget
-- 📊 Daily automatic plugin analysis
-- 🎨 Visual health score indicator
+### Version 1.3.2 (2025-01-XX)
+- ✨ Backup-System vor Änderungen
+- 🔒 Security-Trait für besseren Schutz
+- ⚡ Cache-Manager-System eingeführt
 
-### Version 1.0.0 (2024-11-XX)
-- 🎉 Initial release
-- ✅ Basic PHP configuration checks
-- 📊 System information display
-- 📥 CSV export functionality
-- 🌍 Internationalization support
+### Version 1.3.0 (2024-12-XX)
+- ✨ Automatischer Lösungs-Anbieter hinzugefügt
+- ✨ One-Click-Konfigurations-Fixes
+- ✨ Server- und Hosting-Erkennung
+- ✨ Erweiterte Konfigurations-Generatoren
+- ✨ Konfigurations-Vorschau-Modal
+- 🎨 Verbesserte UI mit Lösungs-Karten
+- 🔧 Schreibberechtigungs-Prüfungen hinzugefügt
 
-## 📄 License
+### Version 1.2.0 (2024-12-XX)
+- ✨ Plugin-Anforderungs-Analyzer hinzugefügt
+- ✨ REST API-Implementierung
+- ✨ WP-CLI-Befehls-Support
+- ✨ Dashboard-Widget
+- 📊 Tägliche automatische Plugin-Analyse
+- 🎨 Visueller Health-Score-Indikator
 
-This plugin is licensed under the GPL v2 or later.
+### Version 1.1.0 (2024-11-XX)
+- ✅ Basis PHP-Konfigurations-Prüfungen
+- 📊 System-Informations-Anzeige
+- 📥 CSV-Export-Funktionalität
+- 🌍 Internationalisierungs-Support
+
+## 📄 Lizenz
+
+Dieses Plugin ist lizenziert unter der GPL v2 oder später.
 
 ```
 This program is free software; you can redistribute it and/or
@@ -318,62 +347,63 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 GNU General Public License for more details.
 ```
 
-## 👨‍💻 Author
+## 👨‍💻 Autor
 
 **Marc Mirschel**
 - Website: [https://mirschel.biz](https://mirschel.biz)
-- Company: [ZooBrothers](https://zoobro.de)
-- Email: marc@mirschel.biz
+- Firma: [ZooBrothers](https://zoobro.de)
+- E-Mail: marc@mirschel.biz
 - GitHub: [@zb-marc](https://github.com/zb-marc)
 
 ## 🙏 Credits
 
-- WordPress Core Team for the Plugin API
-- PHP Community for configuration best practices
-- All contributors and testers
+- WordPress Core Team für die Plugin API
+- PHP Community für Konfigurations-Best-Practices
+- Alle Mitwirkenden und Tester
 
 ## 💬 Support
 
-- **Documentation**: [GitHub Wiki](https://github.com/zb-marc/PHP-Checkup/wiki)
+- **Dokumentation**: [GitHub Wiki](https://github.com/zb-marc/PHP-Checkup/wiki)
 - **Issues**: [GitHub Issues](https://github.com/zb-marc/PHP-Checkup/issues)
 - **Forum**: [WordPress Support Forum](https://wordpress.org/support/plugin/as-php-checkup/)
-- **Email**: support@akkusys.de
+- **E-Mail**: support@akkusys.de
 
 ## 🎯 Roadmap
 
-### Version 1.3.0 (Planned)
-- [ ] Backup system before applying changes
-- [ ] Rollback functionality
-- [ ] Cloud configuration profiles
-- [ ] Performance benchmarking
-- [ ] Email notifications for critical issues
+### Version 1.4.0 (Geplant)
+- [ ] Multi-Site-Netzwerk-Support
+- [ ] Geplante Konfigurations-Prüfungen
+- [ ] Konfigurations-Historie-Tracking
+- [ ] Erweiterte Reporting-Dashboard
+- [ ] Integration mit populären Hosting-APIs
 
-### Version 1.4.0 (Future)
-- [ ] Multi-site network support
-- [ ] Scheduled configuration checks
-- [ ] Configuration history tracking
-- [ ] Advanced reporting dashboard
-- [ ] Integration with popular hosting APIs
+### Version 2.0.0 (Zukunft)
+- [ ] React-basiertes Admin-Interface
+- [ ] Gutenberg-Block für Frontend-Status
+- [ ] Real-Time-Updates über WebSockets
+- [ ] Cloud-Konfigurations-Profile
+- [ ] Performance-Benchmarking
+- [ ] E-Mail-Benachrichtigungen für kritische Probleme
 
 ## 📸 Screenshots
 
-1. **Main Dashboard** - Overview with health score and status cards
-2. **Solutions Section** - Available automatic fixes and downloads
-3. **Configuration Results** - Detailed PHP settings comparison
-4. **System Information** - Server and WordPress details
-5. **Dashboard Widget** - Quick status overview
-6. **WP-CLI Output** - Command-line interface results
+1. **Haupt-Dashboard** - Übersicht mit Health-Score und Status-Karten
+2. **Lösungs-Sektion** - Verfügbare automatische Fixes und Downloads
+3. **Konfigurations-Ergebnisse** - Detaillierter PHP-Einstellungen-Vergleich
+4. **System-Informationen** - Server- und WordPress-Details
+5. **Dashboard-Widget** - Schnelle Status-Übersicht
+6. **WP-CLI-Ausgabe** - Command-Line-Interface-Ergebnisse
 
-## 🏆 Badges & Certifications
+## 🏆 Badges & Zertifizierungen
 
 - WordPress Plugin Directory Ready
 - WPCS (WordPress Coding Standards) Compliant
-- GDPR Compliant (No personal data collection)
+- GDPR Compliant (Keine persönlichen Daten-Sammlung)
 - Accessibility Ready (WCAG 2.1 Level AA)
 - Translation Ready
 
 ---
 
-**Made with ❤️ by [Marc Mirschel](https://mirschel.biz)**
+**Mit ❤️ erstellt von [Marc Mirschel](https://mirschel.biz)**
 
-*If you find this plugin useful, please consider [⭐ starring the repository](https://github.com/zb-marc/PHP-Checkup) and [writing a review](https://wordpress.org/support/plugin/as-php-checkup/reviews/).*
+*Wenn Sie dieses Plugin nützlich finden, bitte [⭐ das Repository markieren](https://github.com/zb-marc/PHP-Checkup) und [eine Bewertung schreiben](https://wordpress.org/support/plugin/as-php-checkup/reviews/).*

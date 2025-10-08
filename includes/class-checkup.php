@@ -474,6 +474,14 @@ class AS_PHP_Checkup {
 	 * @return array
 	 */
 	public function get_check_results() {
+		// Try to get from cache first
+		$cache_manager = AS_PHP_Checkup_Cache_Manager::get_instance();
+		$cached_results = $cache_manager->get( 'check_results' );
+		
+		if ( false !== $cached_results ) {
+			return $cached_results;
+		}
+		
 		// Reload plugin requirements to get latest
 		$this->load_plugin_requirements();
 		
@@ -544,7 +552,10 @@ class AS_PHP_Checkup {
 			}
 		}
 		
-		// Update last check time
+		// Cache the results
+		$cache_manager->set( 'check_results', $results, 300 ); // Cache for 5 minutes
+		
+		// Update last check time only when actually running a check
 		update_option( 'as_php_checkup_last_check', current_time( 'timestamp' ) );
 		
 		return $results;
@@ -605,6 +616,14 @@ class AS_PHP_Checkup {
 	 * @return array
 	 */
 	public function get_system_info() {
+		// Try to get from cache first
+		$cache_manager = AS_PHP_Checkup_Cache_Manager::get_instance();
+		$cached_info = $cache_manager->get( 'system_info' );
+		
+		if ( false !== $cached_info ) {
+			return $cached_info;
+		}
+		
 		global $wpdb;
 		
 		$system_info = array(
@@ -621,6 +640,9 @@ class AS_PHP_Checkup {
 			'disabled_functions' => ini_get( 'disable_functions' ) ?: 'None',
 		);
 		
+		// Cache the system info for longer (30 minutes)
+		$cache_manager->set( 'system_info', $system_info, 1800 );
+		
 		return $system_info;
 	}
 
@@ -634,11 +656,8 @@ class AS_PHP_Checkup {
 		// Clear cache first
 		$this->clear_cache();
 		
-		// Get fresh results
+		// Get fresh results (will be cached automatically)
 		$results = $this->get_check_results();
-		
-		// Cache results
-		set_transient( $this->cache_key, $results, $this->cache_expiration );
 		
 		return $results;
 	}
@@ -650,10 +669,39 @@ class AS_PHP_Checkup {
 	 * @return void
 	 */
 	public function clear_cache() {
+		// Clear old transient (for backwards compatibility)
 		delete_transient( $this->cache_key );
+		
+		// Clear new cache manager caches
+		$cache_manager = AS_PHP_Checkup_Cache_Manager::get_instance();
+		$cache_manager->delete( 'check_results' );
+		$cache_manager->delete( 'system_info' );
 		
 		// Also clear plugin analyzer cache
 		$analyzer = AS_PHP_Checkup_Plugin_Analyzer::get_instance();
 		$analyzer->clear_cache();
+		
+		// Update last check time when cache is cleared
+		update_option( 'as_php_checkup_last_check', 0 );
+	}
+	
+	/**
+	 * Get last actual check time (not from cache)
+	 *
+	 * @since 1.3.3
+	 * @return int
+	 */
+	public function get_last_check_time() {
+		return get_option( 'as_php_checkup_last_check', 0 );
+	}
+	
+	/**
+	 * Force refresh check (clear cache and run new check)
+	 *
+	 * @since 1.3.3
+	 * @return array
+	 */
+	public function force_refresh() {
+		return $this->run_checkup();
 	}
 }
