@@ -11,7 +11,7 @@
  * Plugin Name:       AS PHP Checkup
  * Plugin URI:        https://akkusys.de
  * Description:       Intelligent PHP configuration checker with automatic solution provider, one-click fixes, and configuration generators
- * Version:           1.2.1
+ * Version:           1.3.2
  * Requires at least: 5.8
  * Requires PHP:      7.4
  * Author:            Marc Mirschel
@@ -28,7 +28,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants
-define( 'AS_PHP_CHECKUP_VERSION', '1.2.1' );
+define( 'AS_PHP_CHECKUP_VERSION', '1.3.2' );
 define( 'AS_PHP_CHECKUP_PLUGIN_FILE', __FILE__ );
 define( 'AS_PHP_CHECKUP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AS_PHP_CHECKUP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -97,11 +97,17 @@ add_action( 'plugins_loaded', 'as_php_checkup_load_textdomain' );
  * @return void
  */
 function as_php_checkup_includes() {
+	// Security trait - New in 1.3.0
+	require_once AS_PHP_CHECKUP_PLUGIN_DIR . 'includes/class-solution-provider-secure.php';
+	
+	// Cache Manager - New in 1.3.0
+	require_once AS_PHP_CHECKUP_PLUGIN_DIR . 'includes/class-cache-manager.php';
+	
 	// Core classes
 	require_once AS_PHP_CHECKUP_PLUGIN_DIR . 'includes/class-checkup.php';
 	require_once AS_PHP_CHECKUP_PLUGIN_DIR . 'includes/class-plugin-analyzer.php';
 	
-	// Solution providers - New in 1.2.0
+	// Solution providers
 	require_once AS_PHP_CHECKUP_PLUGIN_DIR . 'includes/class-solution-provider.php';
 	require_once AS_PHP_CHECKUP_PLUGIN_DIR . 'includes/class-config-generator.php';
 	
@@ -131,13 +137,16 @@ add_action( 'plugins_loaded', 'as_php_checkup_includes' );
  * @return void
  */
 function as_php_checkup_init() {
+	// Initialize Cache Manager first - New in 1.3.0
+	AS_PHP_Checkup_Cache_Manager::get_instance();
+	
 	// Initialize the checkup class
 	AS_PHP_Checkup::get_instance();
 	
 	// Initialize plugin analyzer
 	AS_PHP_Checkup_Plugin_Analyzer::get_instance();
 	
-	// Initialize solution provider - New in 1.2.0
+	// Initialize solution provider
 	AS_PHP_Checkup_Solution_Provider::get_instance();
 	AS_PHP_Checkup_Config_Generator::get_instance();
 	
@@ -196,6 +205,11 @@ function as_php_checkup_activate() {
 	// Clear any cached data
 	wp_cache_flush();
 	
+	// Initialize Cache Manager and preload cache - New in 1.3.0
+	$cache_manager = AS_PHP_Checkup_Cache_Manager::get_instance();
+	$cache_manager->clear_all_cache();
+	$cache_manager->preload_cache();
+	
 	// Run initial plugin analysis
 	AS_PHP_Checkup_Plugin_Analyzer::get_instance()->analyze_all_plugins();
 }
@@ -210,6 +224,10 @@ register_activation_hook( __FILE__, 'as_php_checkup_activate' );
 function as_php_checkup_deactivate() {
 	// Clean up scheduled tasks
 	wp_clear_scheduled_hook( 'as_php_checkup_daily_analysis' );
+	
+	// Clear cache - New in 1.3.0
+	$cache_manager = AS_PHP_Checkup_Cache_Manager::get_instance();
+	$cache_manager->clear_all_cache();
 }
 register_deactivation_hook( __FILE__, 'as_php_checkup_deactivate' );
 
@@ -245,14 +263,19 @@ add_filter( 'plugin_action_links_' . AS_PHP_CHECKUP_PLUGIN_BASENAME, 'as_php_che
  * @return void
  */
 function as_php_checkup_run_daily_analysis() {
+	// Clear old cache before analysis - New in 1.3.0
+	$cache_manager = AS_PHP_Checkup_Cache_Manager::get_instance();
+	$cache_manager->clear_plugin_analysis_cache();
+	
 	AS_PHP_Checkup_Plugin_Analyzer::get_instance()->analyze_all_plugins();
 }
 add_action( 'as_php_checkup_daily_analysis', 'as_php_checkup_run_daily_analysis' );
 
 /**
- * Add admin notice for critical issues - New in 1.2.0
+ * Add admin notice for critical issues
  *
- * @since 1.2.0
+ * @since 1.2.0  
+ * @version 1.3.2 - Only count errors as critical, not warnings
  * @return void
  */
 function as_php_checkup_admin_notices() {
@@ -271,25 +294,48 @@ function as_php_checkup_admin_notices() {
 	$results = $checkup->get_check_results();
 	
 	$critical_count = 0;
+	$warning_count = 0;
+	
 	foreach ( $results as $category ) {
 		foreach ( $category['items'] as $item ) {
-			if ( 'warning' === $item['status'] ) {
+			// Only count ERRORS as critical issues
+			if ( 'error' === $item['status'] ) {
 				$critical_count++;
+			} elseif ( 'warning' === $item['status'] ) {
+				$warning_count++;
 			}
 		}
 	}
 	
+	// Show notice only if there are real critical issues (errors)
 	if ( $critical_count > 0 ) {
+		?>
+		<div class="notice notice-error is-dismissible">
+			<p>
+				<strong><?php esc_html_e( 'PHP Configuration Critical Issues:', 'as-php-checkup' ); ?></strong>
+				<?php
+				printf(
+					/* translators: 1: number of critical issues, 2: link to checkup page */
+					esc_html__( 'Your site has %1$d critical PHP configuration issues that need immediate attention. %2$s', 'as-php-checkup' ),
+					$critical_count,
+					'<a href="' . esc_url( admin_url( 'tools.php?page=as-php-checkup' ) ) . '">' . esc_html__( 'Fix Now →', 'as-php-checkup' ) . '</a>'
+				);
+				?>
+			</p>
+		</div>
+		<?php
+	} elseif ( $warning_count > 0 ) {
+		// Show a softer notice for warnings only
 		?>
 		<div class="notice notice-warning is-dismissible">
 			<p>
 				<strong><?php esc_html_e( 'PHP Configuration Alert:', 'as-php-checkup' ); ?></strong>
 				<?php
 				printf(
-					/* translators: 1: number of issues, 2: link to checkup page */
-					esc_html__( 'Your site has %1$d PHP configuration issues that need attention. %2$s', 'as-php-checkup' ),
-					$critical_count,
-					'<a href="' . esc_url( admin_url( 'tools.php?page=as-php-checkup' ) ) . '">' . esc_html__( 'View Solutions →', 'as-php-checkup' ) . '</a>'
+					/* translators: 1: number of warnings, 2: link to checkup page */
+					esc_html__( 'Your site has %1$d PHP configuration warnings that could be improved. %2$s', 'as-php-checkup' ),
+					$warning_count,
+					'<a href="' . esc_url( admin_url( 'tools.php?page=as-php-checkup' ) ) . '">' . esc_html__( 'View Recommendations →', 'as-php-checkup' ) . '</a>'
 				);
 				?>
 			</p>
@@ -298,3 +344,15 @@ function as_php_checkup_admin_notices() {
 	}
 }
 add_action( 'admin_notices', 'as_php_checkup_admin_notices' );
+
+/**
+ * Handle cache clearing on specific events - New in 1.3.0
+ *
+ * @since 1.3.0
+ * @return void
+ */
+function as_php_checkup_clear_cache_on_settings_change() {
+	$cache_manager = AS_PHP_Checkup_Cache_Manager::get_instance();
+	$cache_manager->clear_all_cache();
+}
+add_action( 'update_option_as_php_checkup_widget_options', 'as_php_checkup_clear_cache_on_settings_change' );

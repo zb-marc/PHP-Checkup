@@ -27,6 +27,14 @@ class AS_PHP_Checkup_Plugin_Analyzer {
 	private static $instance = null;
 
 	/**
+	 * Cache manager instance
+	 *
+	 * @since 1.3.0
+	 * @var AS_PHP_Checkup_Cache_Manager
+	 */
+	private $cache_manager;
+
+	/**
 	 * Known plugin requirements database
 	 *
 	 * @since 1.1.0
@@ -35,21 +43,14 @@ class AS_PHP_Checkup_Plugin_Analyzer {
 	private $known_requirements = array();
 
 	/**
-	 * Analyzed plugin data cache
-	 *
-	 * @since 1.1.0
-	 * @var array
-	 */
-	private $analyzed_data = array();
-
-	/**
 	 * Constructor
 	 *
 	 * @since 1.1.0
 	 */
 	private function __construct() {
 		$this->init_known_requirements();
-		$this->load_analyzed_data();
+		// Initialize cache manager - New in 1.3.0
+		$this->cache_manager = AS_PHP_Checkup_Cache_Manager::get_instance();
 	}
 
 	/**
@@ -72,248 +73,241 @@ class AS_PHP_Checkup_Plugin_Analyzer {
 	 * @return void
 	 */
 	private function init_known_requirements() {
+		// Popular plugins and their typical requirements
 		$this->known_requirements = array(
-			// Page Builders
-			'elementor/elementor.php' => array(
-				'name'                => 'Elementor',
-				'php_version'         => '7.4',
+			'woocommerce/woocommerce.php' => array(
 				'memory_limit'        => '256M',
-				'max_input_vars'      => 5000,
 				'max_execution_time'  => 300,
+				'max_input_vars'      => 3000,
+				'upload_max_filesize' => '64M',
+				'post_max_size'       => '64M',
+				'extensions'          => array( 'curl', 'dom', 'hash', 'iconv', 'json', 'mbstring', 'openssl', 'pcre', 'xml', 'zip' ),
+			),
+			'wordpress-seo/wp-seo.php' => array(
+				'memory_limit'    => '256M',
+				'max_input_vars'  => 3000,
+				'extensions'      => array( 'xml', 'openssl' ),
+			),
+			'elementor/elementor.php' => array(
+				'memory_limit'        => '512M',
+				'max_execution_time'  => 300,
+				'max_input_vars'      => 5000,
 				'upload_max_filesize' => '128M',
 				'post_max_size'       => '128M',
 			),
 			'elementor-pro/elementor-pro.php' => array(
-				'name'                => 'Elementor Pro',
-				'php_version'         => '7.4',
 				'memory_limit'        => '512M',
+				'max_execution_time'  => 300,
 				'max_input_vars'      => 5000,
-				'max_execution_time'  => 300,
-				'upload_max_filesize' => '256M',
-				'post_max_size'       => '256M',
 			),
-			'beaver-builder-lite-version/fl-builder.php' => array(
-				'name'                => 'Beaver Builder',
-				'php_version'         => '7.2',
-				'memory_limit'        => '256M',
-				'max_input_vars'      => 3000,
-				'max_execution_time'  => 300,
+			'wp-rocket/wp-rocket.php' => array(
+				'memory_limit'    => '256M',
+				'extensions'      => array( 'curl', 'dom' ),
 			),
-			'divi-builder/divi-builder.php' => array(
-				'name'                => 'Divi Builder',
-				'php_version'         => '7.4',
-				'memory_limit'        => '256M',
-				'max_input_vars'      => 4000,
-				'max_execution_time'  => 300,
-			),
-			'wp-page-builder/wp-page-builder.php' => array(
-				'name'                => 'WP Page Builder',
-				'php_version'         => '7.0',
-				'memory_limit'        => '256M',
-				'max_input_vars'      => 3000,
-				'max_execution_time'  => 300,
-			),
-			
-			// E-Commerce
-			'woocommerce/woocommerce.php' => array(
-				'name'                => 'WooCommerce',
-				'php_version'         => '7.4',
-				'memory_limit'        => '256M',
-				'max_input_vars'      => 3000,
-				'max_execution_time'  => 300,
-				'upload_max_filesize' => '64M',
-				'post_max_size'       => '64M',
-			),
-			'easy-digital-downloads/easy-digital-downloads.php' => array(
-				'name'                => 'Easy Digital Downloads',
-				'php_version'         => '7.2',
-				'memory_limit'        => '256M',
-				'max_input_vars'      => 2000,
-				'max_execution_time'  => 300,
-			),
-			
-			// Multi-language
-			'translatepress-multilingual/index.php' => array(
-				'name'                => 'TranslatePress',
-				'php_version'         => '7.0',
-				'memory_limit'        => '256M',
-				'max_input_vars'      => 6000,
-				'max_execution_time'  => 600,
-			),
-			'polylang/polylang.php' => array(
-				'name'                => 'Polylang',
-				'php_version'         => '7.0',
-				'memory_limit'        => '256M',
-				'max_input_vars'      => 3000,
-				'max_execution_time'  => 300,
-			),
-			'wpml-multilingual-cms/sitepress.php' => array(
-				'name'                => 'WPML',
-				'php_version'         => '7.0',
+			'all-in-one-wp-migration/all-in-one-wp-migration.php' => array(
 				'memory_limit'        => '512M',
-				'max_input_vars'      => 5000,
-				'max_execution_time'  => 600,
-			),
-			
-			// Image Optimization
-			'imagify/imagify.php' => array(
-				'name'                => 'Imagify',
-				'php_version'         => '7.0',
-				'memory_limit'        => '256M',
-				'max_execution_time'  => 600,
-				'upload_max_filesize' => '256M',
-				'post_max_size'       => '256M',
-			),
-			'wp-smushit/wp-smush.php' => array(
-				'name'                => 'Smush',
-				'php_version'         => '7.2',
-				'memory_limit'        => '256M',
-				'max_execution_time'  => 600,
-				'upload_max_filesize' => '128M',
-				'post_max_size'       => '128M',
-			),
-			'ewww-image-optimizer/ewww-image-optimizer.php' => array(
-				'name'                => 'EWWW Image Optimizer',
-				'php_version'         => '7.2',
-				'memory_limit'        => '256M',
-				'max_execution_time'  => 900,
-				'upload_max_filesize' => '256M',
-				'post_max_size'       => '256M',
-			),
-			
-			// Backup Plugins
-			'updraftplus/updraftplus.php' => array(
-				'name'                => 'UpdraftPlus',
-				'php_version'         => '7.0',
-				'memory_limit'        => '512M',
-				'max_execution_time'  => 900,
-				'upload_max_filesize' => '512M',
-				'post_max_size'       => '512M',
-			),
-			'backwpup/backwpup.php' => array(
-				'name'                => 'BackWPup',
-				'php_version'         => '7.2',
-				'memory_limit'        => '256M',
-				'max_execution_time'  => 600,
-			),
-			'duplicator/duplicator.php' => array(
-				'name'                => 'Duplicator',
-				'php_version'         => '7.2',
-				'memory_limit'        => '512M',
-				'max_execution_time'  => 900,
-				'upload_max_filesize' => '512M',
-				'post_max_size'       => '512M',
-			),
-			
-			// SEO Plugins
-			'wordpress-seo/wp-seo.php' => array(
-				'name'                => 'Yoast SEO',
-				'php_version'         => '7.2',
-				'memory_limit'        => '256M',
-				'max_input_vars'      => 3000,
-			),
-			'all-in-one-seo-pack/all_in_one_seo_pack.php' => array(
-				'name'                => 'All in One SEO',
-				'php_version'         => '7.0',
-				'memory_limit'        => '256M',
-				'max_input_vars'      => 3000,
-			),
-			'seo-by-rank-math/rank-math.php' => array(
-				'name'                => 'Rank Math',
-				'php_version'         => '7.2',
-				'memory_limit'        => '256M',
-				'max_input_vars'      => 3000,
-			),
-			
-			// Form Plugins
-			'contact-form-7/wp-contact-form-7.php' => array(
-				'name'                => 'Contact Form 7',
-				'php_version'         => '7.0',
-				'memory_limit'        => '128M',
-				'max_input_vars'      => 2000,
+				'max_execution_time'  => 0,
+				'upload_max_filesize' => '2048M',
+				'post_max_size'       => '2048M',
 			),
 			'wpforms-lite/wpforms.php' => array(
-				'name'                => 'WPForms',
-				'php_version'         => '7.0',
-				'memory_limit'        => '256M',
-				'max_input_vars'      => 3000,
+				'memory_limit'    => '256M',
+				'max_input_vars'  => 3000,
 			),
-			'ninja-forms/ninja-forms.php' => array(
-				'name'                => 'Ninja Forms',
-				'php_version'         => '7.2',
-				'memory_limit'        => '256M',
-				'max_input_vars'      => 3000,
+			'wpforms/wpforms.php' => array(
+				'memory_limit'    => '256M',
+				'max_input_vars'  => 5000,
 			),
-			'formidable/formidable.php' => array(
-				'name'                => 'Formidable Forms',
-				'php_version'         => '7.0',
-				'memory_limit'        => '256M',
-				'max_input_vars'      => 3000,
+			'contact-form-7/wp-contact-form-7.php' => array(
+				'memory_limit'    => '128M',
+				'max_input_vars'  => 1000,
 			),
-			
-			// Security Plugins
+			'updraftplus/updraftplus.php' => array(
+				'memory_limit'        => '512M',
+				'max_execution_time'  => 0,
+				'upload_max_filesize' => '2048M',
+				'post_max_size'       => '2048M',
+			),
+			'backwpup/backwpup.php' => array(
+				'memory_limit'        => '512M',
+				'max_execution_time'  => 0,
+				'extensions'          => array( 'curl', 'zip' ),
+			),
+			'duplicator/duplicator.php' => array(
+				'memory_limit'        => '512M',
+				'max_execution_time'  => 0,
+				'upload_max_filesize' => '2048M',
+				'post_max_size'       => '2048M',
+				'extensions'          => array( 'zip' ),
+			),
 			'wordfence/wordfence.php' => array(
-				'name'                => 'Wordfence',
-				'php_version'         => '7.2',
-				'memory_limit'        => '256M',
-				'max_execution_time'  => 600,
+				'memory_limit'    => '256M',
+				'extensions'      => array( 'curl' ),
 			),
 			'sucuri-scanner/sucuri.php' => array(
-				'name'                => 'Sucuri',
-				'php_version'         => '7.0',
-				'memory_limit'        => '256M',
-				'max_execution_time'  => 600,
-			),
-			'all-in-one-wp-security-and-firewall/wp-security.php' => array(
-				'name'                => 'All In One WP Security',
-				'php_version'         => '7.0',
-				'memory_limit'        => '256M',
-			),
-			
-			// Cache Plugins
-			'wp-rocket/wp-rocket.php' => array(
-				'name'                => 'WP Rocket',
-				'php_version'         => '7.3',
-				'memory_limit'        => '256M',
+				'memory_limit'    => '256M',
+				'extensions'      => array( 'curl', 'json' ),
 			),
 			'w3-total-cache/w3-total-cache.php' => array(
-				'name'                => 'W3 Total Cache',
-				'php_version'         => '7.2',
-				'memory_limit'        => '256M',
+				'memory_limit'    => '256M',
+				'extensions'      => array( 'curl', 'zlib' ),
 			),
 			'wp-super-cache/wp-cache.php' => array(
-				'name'                => 'WP Super Cache',
-				'php_version'         => '7.0',
-				'memory_limit'        => '128M',
+				'memory_limit'    => '128M',
 			),
-			'litespeed-cache/litespeed-cache.php' => array(
-				'name'                => 'LiteSpeed Cache',
-				'php_version'         => '7.0',
-				'memory_limit'        => '256M',
+			'autoptimize/autoptimize.php' => array(
+				'memory_limit'    => '256M',
 			),
-			
-			// LMS Plugins
-			'learnpress/learnpress.php' => array(
-				'name'                => 'LearnPress',
-				'php_version'         => '7.0',
+			'wp-optimize/wp-optimize.php' => array(
+				'memory_limit'    => '256M',
+			),
+			'jetpack/jetpack.php' => array(
+				'memory_limit'    => '256M',
+				'extensions'      => array( 'curl', 'xml', 'json' ),
+			),
+			'akismet/akismet.php' => array(
+				'extensions'      => array( 'curl' ),
+			),
+			'buddypress/bp-loader.php' => array(
+				'memory_limit'    => '256M',
+				'max_input_vars'  => 3000,
+			),
+			'bbpress/bbpress.php' => array(
+				'memory_limit'    => '256M',
+				'max_input_vars'  => 3000,
+			),
+			'mailchimp-for-wp/mailchimp-for-wp.php' => array(
+				'extensions'      => array( 'curl' ),
+			),
+			'really-simple-ssl/rlrsssl-really-simple-ssl.php' => array(
+				'extensions'      => array( 'openssl' ),
+			),
+			'google-analytics-for-wordpress/googleanalytics.php' => array(
+				'extensions'      => array( 'curl', 'json' ),
+			),
+			'redirection/redirection.php' => array(
+				'memory_limit'    => '128M',
+			),
+			'broken-link-checker/broken-link-checker.php' => array(
+				'memory_limit'    => '256M',
+				'max_execution_time' => 300,
+				'extensions'      => array( 'curl' ),
+			),
+			'wp-mail-smtp/wp_mail_smtp.php' => array(
+				'extensions'      => array( 'openssl' ),
+			),
+			'advanced-custom-fields/acf.php' => array(
+				'memory_limit'    => '256M',
+				'max_input_vars'  => 3000,
+			),
+			'advanced-custom-fields-pro/acf.php' => array(
+				'memory_limit'    => '256M',
+				'max_input_vars'  => 5000,
+			),
+			'custom-post-type-ui/custom-post-type-ui.php' => array(
+				'memory_limit'    => '128M',
+			),
+			'wpml-multilingual-cms/sitepress.php' => array(
+				'memory_limit'    => '512M',
+				'max_input_vars'  => 5000,
+				'extensions'      => array( 'mbstring', 'xml' ),
+			),
+			'polylang/polylang.php' => array(
+				'memory_limit'    => '256M',
+				'max_input_vars'  => 3000,
+			),
+			'translatepress-multilingual/index.php' => array(
+				'memory_limit'    => '256M',
+				'max_input_vars'  => 3000,
+				'extensions'      => array( 'mbstring' ),
+			),
+			'nextgen-gallery/nggallery.php' => array(
 				'memory_limit'        => '256M',
-				'max_input_vars'      => 3000,
+				'upload_max_filesize' => '128M',
+				'extensions'          => array( 'gd', 'imagick' ),
+			),
+			'envira-gallery-lite/envira-gallery-lite.php' => array(
+				'memory_limit'        => '256M',
+				'upload_max_filesize' => '128M',
+				'extensions'          => array( 'gd' ),
+			),
+			'wp-smushit/wp-smush.php' => array(
+				'memory_limit'        => '256M',
 				'max_execution_time'  => 300,
+				'extensions'          => array( 'gd', 'imagick' ),
+			),
+			'imagify/imagify.php' => array(
+				'memory_limit'        => '256M',
+				'extensions'          => array( 'curl', 'gd' ),
+			),
+			'shortpixel-image-optimiser/wp-shortpixel.php' => array(
+				'memory_limit'        => '256M',
+				'extensions'          => array( 'curl', 'gd' ),
+			),
+			'regenerate-thumbnails/regenerate-thumbnails.php' => array(
+				'memory_limit'        => '512M',
+				'max_execution_time'  => 600,
+				'extensions'          => array( 'gd', 'imagick' ),
+			),
+			'wps-hide-login/wps-hide-login.php' => array(
+				'memory_limit'    => '64M',
+			),
+			'limit-login-attempts-reloaded/limit-login-attempts-reloaded.php' => array(
+				'memory_limit'    => '64M',
+			),
+			'all-in-one-seo-pack/all_in_one_seo_pack.php' => array(
+				'memory_limit'    => '256M',
+				'max_input_vars'  => 3000,
+			),
+			'seo-by-rank-math/rank-math.php' => array(
+				'memory_limit'    => '256M',
+				'max_input_vars'  => 3000,
+				'extensions'      => array( 'mbstring' ),
+			),
+			'the-events-calendar/the-events-calendar.php' => array(
+				'memory_limit'    => '256M',
+				'max_input_vars'  => 3000,
+			),
+			'event-organiser/event-organiser.php' => array(
+				'memory_limit'    => '128M',
+			),
+			'give/give.php' => array(
+				'memory_limit'    => '256M',
+				'max_input_vars'  => 3000,
+			),
+			'wp-migrate-db/wp-migrate-db.php' => array(
+				'memory_limit'        => '512M',
+				'max_execution_time'  => 0,
+			),
+			'better-search-replace/better-search-replace.php' => array(
+				'memory_limit'        => '512M',
+				'max_execution_time'  => 600,
+			),
+			'learnpress/learnpress.php' => array(
+				'memory_limit'    => '256M',
+				'max_input_vars'  => 3000,
 			),
 			'tutor/tutor.php' => array(
-				'name'                => 'Tutor LMS',
-				'php_version'         => '7.0',
-				'memory_limit'        => '256M',
-				'max_input_vars'      => 3000,
-				'max_execution_time'  => 300,
+				'memory_limit'    => '256M',
+				'max_input_vars'  => 3000,
 			),
-			'sensei-lms/sensei-lms.php' => array(
-				'name'                => 'Sensei LMS',
-				'php_version'         => '7.2',
-				'memory_limit'        => '256M',
-				'max_input_vars'      => 3000,
+			'lifterlms/lifterlms.php' => array(
+				'memory_limit'    => '256M',
+				'max_input_vars'  => 3000,
+			),
+			'buddyboss-platform/buddyboss-platform.php' => array(
+				'memory_limit'    => '512M',
+				'max_input_vars'  => 5000,
+				'extensions'      => array( 'curl', 'gd', 'mbstring' ),
+			),
+			'peepso-core/peepso.php' => array(
+				'memory_limit'    => '256M',
+				'max_input_vars'  => 3000,
 			),
 		);
+
+		// Allow filtering of known requirements
+		$this->known_requirements = apply_filters( 'as_php_checkup_known_requirements', $this->known_requirements );
 	}
 
 	/**
@@ -323,371 +317,637 @@ class AS_PHP_Checkup_Plugin_Analyzer {
 	 * @return array
 	 */
 	public function analyze_all_plugins() {
+		// Try to get from cache first - Enhanced with Cache Manager in 1.3.0
+		$cached_analysis = $this->cache_manager->get( 'plugin_analysis' );
+		if ( false !== $cached_analysis ) {
+			return $cached_analysis;
+		}
+
 		$active_plugins = get_option( 'active_plugins', array() );
-		$analyzed = array();
-		
+		$analysis_results = array();
+
 		foreach ( $active_plugins as $plugin ) {
-			$requirements = $this->get_plugin_requirements( $plugin );
-			if ( $requirements ) {
-				$analyzed[ $plugin ] = $requirements;
+			$plugin_data = $this->analyze_plugin( $plugin );
+			if ( $plugin_data ) {
+				$analysis_results[ $plugin ] = $plugin_data;
 			}
 		}
-		
-		// Check for network activated plugins on multisite
+
+		// Check for active network plugins in multisite
 		if ( is_multisite() ) {
 			$network_plugins = get_site_option( 'active_sitewide_plugins', array() );
-			foreach ( $network_plugins as $plugin => $time ) {
-				$requirements = $this->get_plugin_requirements( $plugin );
-				if ( $requirements ) {
-					$analyzed[ $plugin ] = $requirements;
+			foreach ( $network_plugins as $plugin => $timestamp ) {
+				$plugin_data = $this->analyze_plugin( $plugin );
+				if ( $plugin_data ) {
+					$analysis_results[ $plugin ] = $plugin_data;
 				}
 			}
 		}
-		
-		// Store analyzed data
-		$this->analyzed_data = $analyzed;
-		$this->save_analyzed_data();
-		
-		return $analyzed;
+
+		// Store analysis results
+		update_option( 'as_php_checkup_plugin_analysis', $analysis_results );
+		update_option( 'as_php_checkup_last_analysis', current_time( 'timestamp' ) );
+
+		// Cache the analysis - Enhanced with Cache Manager in 1.3.0
+		$this->cache_manager->set( 'plugin_analysis', $analysis_results, DAY_IN_SECONDS );
+
+		return $analysis_results;
 	}
 
 	/**
-	 * Get requirements for a specific plugin
+	 * Analyze individual plugin
 	 *
 	 * @since 1.1.0
-	 * @param string $plugin_file Plugin file path.
-	 * @return array|false
+	 * @param string $plugin Plugin file path.
+	 * @return array|null
 	 */
-	private function get_plugin_requirements( $plugin_file ) {
-		// Check if we have known requirements
-		if ( isset( $this->known_requirements[ $plugin_file ] ) ) {
-			return $this->known_requirements[ $plugin_file ];
+	private function analyze_plugin( $plugin ) {
+		// Skip our own plugin
+		if ( strpos( $plugin, 'as-php-checkup' ) !== false ) {
+			return null;
 		}
-		
-		// Try to detect requirements from plugin headers
-		$plugin_data = $this->analyze_plugin_file( $plugin_file );
-		if ( $plugin_data ) {
-			return $plugin_data;
-		}
-		
-		return false;
-	}
 
-	/**
-	 * Analyze plugin file for requirements
-	 *
-	 * @since 1.1.0
-	 * @param string $plugin_file Plugin file path.
-	 * @return array|false
-	 */
-	private function analyze_plugin_file( $plugin_file ) {
-		$plugin_path = WP_PLUGIN_DIR . '/' . $plugin_file;
-		
-		if ( ! file_exists( $plugin_path ) ) {
-			return false;
+		$plugin_file = WP_PLUGIN_DIR . '/' . $plugin;
+		if ( ! file_exists( $plugin_file ) ) {
+			return null;
 		}
-		
-		// Get plugin data
-		$plugin_data = get_plugin_data( $plugin_path );
+
+		$plugin_data = get_plugin_data( $plugin_file );
 		if ( empty( $plugin_data['Name'] ) ) {
-			return false;
+			return null;
 		}
-		
-		$requirements = array(
-			'name' => $plugin_data['Name'],
+
+		$requirements = $this->extract_requirements( $plugin );
+
+		return array(
+			'name'          => $plugin_data['Name'],
+			'version'       => $plugin_data['Version'],
+			'author'        => $plugin_data['Author'],
+			'requires_php'  => ! empty( $plugin_data['RequiresPHP'] ) ? $plugin_data['RequiresPHP'] : '',
+			'requirements'  => $requirements,
+			'analyzed_at'   => current_time( 'timestamp' ),
 		);
-		
-		// Check PHP version requirement
-		if ( ! empty( $plugin_data['RequiresPHP'] ) ) {
-			$requirements['php_version'] = $plugin_data['RequiresPHP'];
-		}
-		
-		// Try to detect requirements from readme.txt
-		$readme_requirements = $this->parse_readme_requirements( dirname( $plugin_path ) );
-		if ( $readme_requirements ) {
-			$requirements = array_merge( $requirements, $readme_requirements );
-		}
-		
-		// Apply heuristics based on plugin type
-		$heuristic_requirements = $this->apply_heuristics( $plugin_data );
-		if ( $heuristic_requirements ) {
-			$requirements = array_merge( $requirements, $heuristic_requirements );
-		}
-		
-		return ! empty( $requirements ) ? $requirements : false;
 	}
 
 	/**
-	 * Parse readme.txt for requirements
+	 * Extract requirements from plugin
 	 *
 	 * @since 1.1.0
-	 * @param string $plugin_dir Plugin directory path.
-	 * @return array|false
+	 * @param string $plugin Plugin file path.
+	 * @return array
 	 */
-	private function parse_readme_requirements( $plugin_dir ) {
-		$readme_files = array( 'readme.txt', 'README.txt', 'readme.md', 'README.md' );
+	private function extract_requirements( $plugin ) {
+		// First check if we have known requirements
+		if ( isset( $this->known_requirements[ $plugin ] ) ) {
+			return $this->known_requirements[ $plugin ];
+		}
+
+		// Try to extract from plugin headers and readme
 		$requirements = array();
-		
-		foreach ( $readme_files as $readme ) {
-			$readme_path = $plugin_dir . '/' . $readme;
-			if ( file_exists( $readme_path ) ) {
-				$content = file_get_contents( $readme_path );
-				
-				// Look for PHP version
-				if ( preg_match( '/Requires PHP:\s*([0-9.]+)/i', $content, $matches ) ) {
-					$requirements['php_version'] = $matches[1];
-				}
-				
-				// Look for memory requirements
-				if ( preg_match( '/memory.{0,20}limit.{0,20}([0-9]+)M/i', $content, $matches ) ) {
-					$requirements['memory_limit'] = $matches[1] . 'M';
-				}
-				
-				// Look for max_input_vars
-				if ( preg_match( '/max.{0,5}input.{0,5}vars.{0,20}([0-9]+)/i', $content, $matches ) ) {
-					$requirements['max_input_vars'] = intval( $matches[1] );
-				}
-				
+		$plugin_file = WP_PLUGIN_DIR . '/' . $plugin;
+		$plugin_dir = dirname( $plugin_file );
+
+		// Check readme.txt or README.md
+		$readme_files = array(
+			$plugin_dir . '/readme.txt',
+			$plugin_dir . '/README.txt',
+			$plugin_dir . '/readme.md',
+			$plugin_dir . '/README.md',
+		);
+
+		foreach ( $readme_files as $readme_file ) {
+			if ( file_exists( $readme_file ) ) {
+				$readme_content = file_get_contents( $readme_file );
+				$requirements = array_merge( $requirements, $this->parse_readme_requirements( $readme_content ) );
 				break;
 			}
 		}
-		
-		return ! empty( $requirements ) ? $requirements : false;
-	}
 
-	/**
-	 * Apply heuristics based on plugin characteristics
-	 *
-	 * @since 1.1.0
-	 * @param array $plugin_data Plugin data.
-	 * @return array
-	 */
-	private function apply_heuristics( $plugin_data ) {
-		$requirements = array();
-		$name_lower = strtolower( $plugin_data['Name'] );
-		$description_lower = strtolower( $plugin_data['Description'] );
-		$combined = $name_lower . ' ' . $description_lower;
-		
-		// E-commerce plugins
-		if ( strpos( $combined, 'shop' ) !== false || 
-		     strpos( $combined, 'commerce' ) !== false || 
-		     strpos( $combined, 'store' ) !== false ||
-		     strpos( $combined, 'payment' ) !== false ) {
-			$requirements['memory_limit'] = '256M';
-			$requirements['max_input_vars'] = 3000;
-			$requirements['max_execution_time'] = 300;
+		// Check plugin main file for ini_set calls or defined requirements
+		if ( file_exists( $plugin_file ) ) {
+			$plugin_content = file_get_contents( $plugin_file );
+			$requirements = array_merge( $requirements, $this->parse_plugin_requirements( $plugin_content ) );
 		}
-		
-		// Page builders
-		if ( strpos( $combined, 'builder' ) !== false || 
-		     strpos( $combined, 'composer' ) !== false ||
-		     strpos( $combined, 'editor' ) !== false ) {
-			$requirements['memory_limit'] = '256M';
-			$requirements['max_input_vars'] = 5000;
-			$requirements['max_execution_time'] = 300;
+
+		// Check for composer.json
+		$composer_file = $plugin_dir . '/composer.json';
+		if ( file_exists( $composer_file ) ) {
+			$composer_content = file_get_contents( $composer_file );
+			$requirements = array_merge( $requirements, $this->parse_composer_requirements( $composer_content ) );
 		}
-		
-		// Image processing
-		if ( strpos( $combined, 'image' ) !== false || 
-		     strpos( $combined, 'photo' ) !== false ||
-		     strpos( $combined, 'gallery' ) !== false ||
-		     strpos( $combined, 'media' ) !== false ) {
-			$requirements['memory_limit'] = '256M';
-			$requirements['upload_max_filesize'] = '128M';
-			$requirements['post_max_size'] = '128M';
-			$requirements['max_execution_time'] = 600;
-		}
-		
-		// Backup/Migration plugins
-		if ( strpos( $combined, 'backup' ) !== false || 
-		     strpos( $combined, 'migrate' ) !== false ||
-		     strpos( $combined, 'clone' ) !== false ||
-		     strpos( $combined, 'duplicate' ) !== false ) {
-			$requirements['memory_limit'] = '512M';
-			$requirements['max_execution_time'] = 900;
-			$requirements['upload_max_filesize'] = '512M';
-			$requirements['post_max_size'] = '512M';
-		}
-		
-		// Multi-language plugins
-		if ( strpos( $combined, 'translate' ) !== false || 
-		     strpos( $combined, 'multilingual' ) !== false ||
-		     strpos( $combined, 'language' ) !== false ||
-		     strpos( $combined, 'wpml' ) !== false ) {
-			$requirements['memory_limit'] = '256M';
-			$requirements['max_input_vars'] = 5000;
-			$requirements['max_execution_time'] = 600;
-		}
-		
-		// Forms plugins
-		if ( strpos( $combined, 'form' ) !== false || 
-		     strpos( $combined, 'contact' ) !== false ) {
-			$requirements['max_input_vars'] = 3000;
-			$requirements['memory_limit'] = '256M';
-		}
-		
-		// Security plugins
-		if ( strpos( $combined, 'security' ) !== false || 
-		     strpos( $combined, 'firewall' ) !== false ||
-		     strpos( $combined, 'antivirus' ) !== false ||
-		     strpos( $combined, 'malware' ) !== false ) {
-			$requirements['memory_limit'] = '256M';
-			$requirements['max_execution_time'] = 600;
-		}
-		
-		// LMS plugins
-		if ( strpos( $combined, 'learn' ) !== false || 
-		     strpos( $combined, 'course' ) !== false ||
-		     strpos( $combined, 'lms' ) !== false ||
-		     strpos( $combined, 'lesson' ) !== false ) {
-			$requirements['memory_limit'] = '256M';
-			$requirements['max_input_vars'] = 3000;
-			$requirements['max_execution_time'] = 300;
-		}
-		
+
 		return $requirements;
 	}
 
 	/**
-	 * Get combined requirements from all active plugins
+	 * Parse requirements from readme content
 	 *
 	 * @since 1.1.0
+	 * @param string $content Readme content.
 	 * @return array
 	 */
-	public function get_combined_requirements() {
-		if ( empty( $this->analyzed_data ) ) {
-			$this->analyze_all_plugins();
+	private function parse_readme_requirements( $content ) {
+		$requirements = array();
+
+		// Look for memory limit mentions
+		if ( preg_match( '/memory[_\s]*limit[:\s]*(\d+[MG])/i', $content, $matches ) ) {
+			$requirements['memory_limit'] = $matches[1];
+		}
+
+		// Look for max execution time
+		if ( preg_match( '/max[_\s]*execution[_\s]*time[:\s]*(\d+)/i', $content, $matches ) ) {
+			$requirements['max_execution_time'] = intval( $matches[1] );
+		}
+
+		// Look for max input vars
+		if ( preg_match( '/max[_\s]*input[_\s]*vars[:\s]*(\d+)/i', $content, $matches ) ) {
+			$requirements['max_input_vars'] = intval( $matches[1] );
+		}
+
+		// Look for upload size
+		if ( preg_match( '/upload[_\s]*max[_\s]*filesize[:\s]*(\d+[MG])/i', $content, $matches ) ) {
+			$requirements['upload_max_filesize'] = $matches[1];
+		}
+
+		// Look for PHP extensions
+		$extensions = array();
+		$common_extensions = array( 'curl', 'gd', 'imagick', 'mbstring', 'xml', 'json', 'openssl', 'zip', 'soap', 'iconv' );
+		
+		foreach ( $common_extensions as $ext ) {
+			if ( stripos( $content, $ext ) !== false && stripos( $content, 'require' ) !== false ) {
+				$extensions[ $ext ] = true;
+			}
 		}
 		
-		$combined = array(
-			'sources' => array(),
-		);
-		
-		foreach ( $this->analyzed_data as $plugin_file => $requirements ) {
-			foreach ( $requirements as $key => $value ) {
-				if ( 'name' === $key ) {
-					continue;
-				}
+		if ( ! empty( $extensions ) ) {
+			$requirements['extensions'] = $extensions;
+		}
+
+		return $requirements;
+	}
+
+	/**
+	 * Parse requirements from plugin content
+	 *
+	 * @since 1.1.0
+	 * @param string $content Plugin content.
+	 * @return array
+	 */
+	private function parse_plugin_requirements( $content ) {
+		$requirements = array();
+
+		// Look for ini_set calls
+		if ( preg_match_all( '/ini_set\s*\(\s*[\'"]([^\'"]+)[\'"]\s*,\s*[\'"]?([^\'"]+)[\'"]?\s*\)/', $content, $matches ) ) {
+			foreach ( $matches[1] as $index => $setting ) {
+				$value = $matches[2][ $index ];
 				
-				// Track sources
-				if ( ! isset( $combined['sources'][ $key ] ) ) {
-					$combined['sources'][ $key ] = array();
-				}
-				$combined['sources'][ $key ][] = $requirements['name'];
-				
-				// Combine requirements (use highest/most demanding)
-				switch ( $key ) {
-					case 'php_version':
-						if ( ! isset( $combined[ $key ] ) || 
-						     version_compare( $value, $combined[ $key ], '>' ) ) {
-							$combined[ $key ] = $value;
-						}
-						break;
-						
+				switch ( $setting ) {
 					case 'memory_limit':
-					case 'upload_max_filesize':
-					case 'post_max_size':
-					case 'realpath_cache_size':
-						$current_bytes = isset( $combined[ $key ] ) ? 
-						                $this->convert_to_bytes( $combined[ $key ] ) : 0;
-						$new_bytes = $this->convert_to_bytes( $value );
-						if ( $new_bytes > $current_bytes ) {
-							$combined[ $key ] = $value;
-						}
+						$requirements['memory_limit'] = $value;
 						break;
-						
-					case 'max_input_vars':
 					case 'max_execution_time':
-					case 'max_input_time':
-					case 'max_input_nesting_level':
-						$current_val = isset( $combined[ $key ] ) ? intval( $combined[ $key ] ) : 0;
-						$new_val = intval( $value );
-						if ( $new_val > $current_val ) {
-							$combined[ $key ] = $new_val;
-						}
+						$requirements['max_execution_time'] = intval( $value );
 						break;
-						
-					default:
-						// For other values, use if not set
-						if ( ! isset( $combined[ $key ] ) ) {
-							$combined[ $key ] = $value;
-						}
+					case 'max_input_vars':
+						$requirements['max_input_vars'] = intval( $value );
+						break;
+					case 'upload_max_filesize':
+						$requirements['upload_max_filesize'] = $value;
+						break;
+					case 'post_max_size':
+						$requirements['post_max_size'] = $value;
 						break;
 				}
 			}
 		}
-		
-		return $combined;
+
+		// Look for defined constants
+		if ( preg_match( '/define\s*\(\s*[\'"]WP_MEMORY_LIMIT[\'"]\s*,\s*[\'"](\d+[MG])[\'"]/', $content, $matches ) ) {
+			$requirements['memory_limit'] = $matches[1];
+		}
+
+		// Look for extension_loaded checks
+		$extensions = array();
+		if ( preg_match_all( '/extension_loaded\s*\(\s*[\'"]([^\'"]+)[\'"]/', $content, $matches ) ) {
+			foreach ( $matches[1] as $ext ) {
+				$extensions[ $ext ] = true;
+			}
+		}
+
+		// Look for function_exists checks that indicate extension requirements
+		$function_to_extension = array(
+			'curl_init'        => 'curl',
+			'imagecreate'      => 'gd',
+			'imagick'          => 'imagick',
+			'mb_strlen'        => 'mbstring',
+			'simplexml_load'   => 'xml',
+			'json_encode'      => 'json',
+			'openssl_encrypt'  => 'openssl',
+			'zip_open'         => 'zip',
+			'soap_client'      => 'soap',
+			'iconv'            => 'iconv',
+			'mysqli_connect'   => 'mysqli',
+			'pdo'              => 'pdo',
+		);
+
+		foreach ( $function_to_extension as $function => $ext ) {
+			if ( stripos( $content, $function ) !== false ) {
+				$extensions[ $ext ] = true;
+			}
+		}
+
+		if ( ! empty( $extensions ) ) {
+			$requirements['extensions'] = $extensions;
+		}
+
+		return $requirements;
 	}
 
 	/**
-	 * Convert memory string to bytes
+	 * Parse requirements from composer.json
 	 *
 	 * @since 1.1.0
-	 * @param string $value Memory value.
+	 * @param string $content Composer.json content.
+	 * @return array
+	 */
+	private function parse_composer_requirements( $content ) {
+		$requirements = array();
+		
+		$composer = json_decode( $content, true );
+		
+		if ( ! $composer ) {
+			return $requirements;
+		}
+
+		// Check PHP version requirement
+		if ( isset( $composer['require']['php'] ) ) {
+			// Extract PHP version, e.g., ">=7.4" -> "7.4"
+			preg_match( '/[\d.]+/', $composer['require']['php'], $matches );
+			if ( ! empty( $matches[0] ) ) {
+				$requirements['php_version'] = $matches[0];
+			}
+		}
+
+		// Check for PHP extensions
+		$extensions = array();
+		if ( isset( $composer['require'] ) ) {
+			foreach ( $composer['require'] as $package => $version ) {
+				if ( strpos( $package, 'ext-' ) === 0 ) {
+					$ext = str_replace( 'ext-', '', $package );
+					$extensions[ $ext ] = true;
+				}
+			}
+		}
+
+		if ( ! empty( $extensions ) ) {
+			$requirements['extensions'] = $extensions;
+		}
+
+		return $requirements;
+	}
+
+	/**
+	 * Get aggregated requirements from all plugins
+	 *
+	 * @since 1.1.0
+	 * @return array
+	 */
+	public function get_aggregated_requirements() {
+		// Try to get from cache first - Enhanced with Cache Manager in 1.3.0
+		$cached_requirements = $this->cache_manager->get( 'plugin_requirements' );
+		if ( false !== $cached_requirements ) {
+			return $cached_requirements;
+		}
+
+		$analysis = $this->analyze_all_plugins();
+		$aggregated = array(
+			'memory_limit'        => '64M',
+			'max_execution_time'  => 30,
+			'max_input_time'      => 60,
+			'max_input_vars'      => 1000,
+			'upload_max_filesize' => '2M',
+			'post_max_size'       => '8M',
+			'extensions'          => array(),
+		);
+
+		foreach ( $analysis as $plugin_data ) {
+			if ( empty( $plugin_data['requirements'] ) ) {
+				continue;
+			}
+
+			$reqs = $plugin_data['requirements'];
+
+			// Memory limit - take the highest
+			if ( isset( $reqs['memory_limit'] ) ) {
+				if ( $this->compare_memory_values( $reqs['memory_limit'], $aggregated['memory_limit'] ) > 0 ) {
+					$aggregated['memory_limit'] = $reqs['memory_limit'];
+				}
+			}
+
+			// Execution time - take the highest
+			if ( isset( $reqs['max_execution_time'] ) ) {
+				$aggregated['max_execution_time'] = max( $aggregated['max_execution_time'], intval( $reqs['max_execution_time'] ) );
+			}
+
+			// Input time - take the highest
+			if ( isset( $reqs['max_input_time'] ) ) {
+				$aggregated['max_input_time'] = max( $aggregated['max_input_time'], intval( $reqs['max_input_time'] ) );
+			}
+
+			// Input vars - take the highest
+			if ( isset( $reqs['max_input_vars'] ) ) {
+				$aggregated['max_input_vars'] = max( $aggregated['max_input_vars'], intval( $reqs['max_input_vars'] ) );
+			}
+
+			// Upload max filesize - take the highest
+			if ( isset( $reqs['upload_max_filesize'] ) ) {
+				if ( $this->compare_memory_values( $reqs['upload_max_filesize'], $aggregated['upload_max_filesize'] ) > 0 ) {
+					$aggregated['upload_max_filesize'] = $reqs['upload_max_filesize'];
+				}
+			}
+
+			// Post max size - take the highest
+			if ( isset( $reqs['post_max_size'] ) ) {
+				if ( $this->compare_memory_values( $reqs['post_max_size'], $aggregated['post_max_size'] ) > 0 ) {
+					$aggregated['post_max_size'] = $reqs['post_max_size'];
+				}
+			}
+
+			// Extensions - merge all required
+			if ( isset( $reqs['extensions'] ) ) {
+				$aggregated['extensions'] = array_merge( $aggregated['extensions'], $reqs['extensions'] );
+			}
+		}
+
+		// Cache the aggregated requirements - Enhanced with Cache Manager in 1.3.0
+		$this->cache_manager->set( 'plugin_requirements', $aggregated, 12 * HOUR_IN_SECONDS );
+
+		return $aggregated;
+	}
+
+	/**
+	 * Compare memory values
+	 *
+	 * @since 1.1.0
+	 * @param string $value1 First value.
+	 * @param string $value2 Second value.
+	 * @return int
+	 */
+	private function compare_memory_values( $value1, $value2 ) {
+		$bytes1 = $this->convert_to_bytes( $value1 );
+		$bytes2 = $this->convert_to_bytes( $value2 );
+
+		if ( $bytes1 > $bytes2 ) {
+			return 1;
+		} elseif ( $bytes1 < $bytes2 ) {
+			return -1;
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Convert memory value to bytes
+	 *
+	 * @since 1.1.0
+	 * @param string $value Memory value with suffix.
 	 * @return int
 	 */
 	private function convert_to_bytes( $value ) {
 		$value = trim( $value );
-		if ( empty( $value ) ) {
-			return 0;
-		}
-		
 		$last = strtolower( $value[ strlen( $value ) - 1 ] );
 		$value = intval( $value );
-		
+
 		switch ( $last ) {
 			case 'g':
-				$value *= 1024 * 1024 * 1024;
+				$value *= 1073741824;
 				break;
 			case 'm':
-				$value *= 1024 * 1024;
+				$value *= 1048576;
 				break;
 			case 'k':
 				$value *= 1024;
 				break;
 		}
-		
+
 		return $value;
 	}
 
 	/**
-	 * Save analyzed data to database
-	 *
-	 * @since 1.1.0
-	 * @return void
-	 */
-	private function save_analyzed_data() {
-		update_option( 'as_php_checkup_plugin_analysis', $this->analyzed_data, false );
-		update_option( 'as_php_checkup_analysis_time', current_time( 'timestamp' ), false );
-	}
-
-	/**
-	 * Load analyzed data from database
-	 *
-	 * @since 1.1.0
-	 * @return void
-	 */
-	private function load_analyzed_data() {
-		$this->analyzed_data = get_option( 'as_php_checkup_plugin_analysis', array() );
-		
-		// Re-analyze if data is older than 24 hours
-		$last_analysis = get_option( 'as_php_checkup_analysis_time', 0 );
-		if ( ( current_time( 'timestamp' ) - $last_analysis ) > DAY_IN_SECONDS ) {
-			$this->analyze_all_plugins();
-		}
-	}
-
-	/**
-	 * Get analyzed plugin data
+	 * Get plugin analysis report
 	 *
 	 * @since 1.1.0
 	 * @return array
 	 */
-	public function get_analyzed_data() {
-		if ( empty( $this->analyzed_data ) ) {
-			$this->analyze_all_plugins();
+	public function get_analysis_report() {
+		$analysis = $this->analyze_all_plugins();
+		$aggregated = $this->get_aggregated_requirements();
+
+		$report = array(
+			'total_plugins'          => count( $analysis ),
+			'analyzed_at'            => get_option( 'as_php_checkup_last_analysis', 0 ),
+			'aggregated_requirements' => $aggregated,
+			'plugin_details'         => array(),
+		);
+
+		foreach ( $analysis as $plugin_file => $data ) {
+			$report['plugin_details'][] = array(
+				'name'         => $data['name'],
+				'version'      => $data['version'],
+				'requires_php' => $data['requires_php'],
+				'has_requirements' => ! empty( $data['requirements'] ),
+				'requirements' => $data['requirements'],
+			);
 		}
-		return $this->analyzed_data;
+
+		// Sort plugins by name
+		usort( $report['plugin_details'], function( $a, $b ) {
+			return strcasecmp( $a['name'], $b['name'] );
+		} );
+
+		return $report;
+	}
+
+	/**
+	 * Check if specific extension is required by any plugin
+	 *
+	 * @since 1.1.0
+	 * @param string $extension Extension name.
+	 * @return array
+	 */
+	public function get_plugins_requiring_extension( $extension ) {
+		$analysis = $this->analyze_all_plugins();
+		$plugins_requiring = array();
+
+		foreach ( $analysis as $plugin_file => $data ) {
+			if ( isset( $data['requirements']['extensions'][ $extension ] ) && $data['requirements']['extensions'][ $extension ] ) {
+				$plugins_requiring[] = array(
+					'name'    => $data['name'],
+					'version' => $data['version'],
+					'file'    => $plugin_file,
+				);
+			}
+		}
+
+		return $plugins_requiring;
+	}
+
+	/**
+	 * Get compatibility issues
+	 *
+	 * @since 1.1.0
+	 * @return array
+	 */
+	public function get_compatibility_issues() {
+		$issues = array();
+		$current_php = PHP_VERSION;
+		$analysis = $this->analyze_all_plugins();
+
+		foreach ( $analysis as $plugin_file => $data ) {
+			$plugin_issues = array();
+
+			// Check PHP version
+			if ( ! empty( $data['requires_php'] ) && version_compare( $current_php, $data['requires_php'], '<' ) ) {
+				$plugin_issues[] = sprintf(
+					/* translators: 1: required PHP version, 2: current PHP version */
+					__( 'Requires PHP %1$s or higher (current: %2$s)', 'as-php-checkup' ),
+					$data['requires_php'],
+					$current_php
+				);
+			}
+
+			// Check memory limit
+			if ( ! empty( $data['requirements']['memory_limit'] ) ) {
+				$current_memory = ini_get( 'memory_limit' );
+				if ( $this->compare_memory_values( $current_memory, $data['requirements']['memory_limit'] ) < 0 ) {
+					$plugin_issues[] = sprintf(
+						/* translators: 1: required memory limit, 2: current memory limit */
+						__( 'Requires memory limit of %1$s (current: %2$s)', 'as-php-checkup' ),
+						$data['requirements']['memory_limit'],
+						$current_memory
+					);
+				}
+			}
+
+			// Check extensions
+			if ( ! empty( $data['requirements']['extensions'] ) ) {
+				foreach ( $data['requirements']['extensions'] as $ext => $required ) {
+					if ( $required && ! extension_loaded( $ext ) ) {
+						$plugin_issues[] = sprintf(
+							/* translators: %s: extension name */
+							__( 'Requires %s PHP extension', 'as-php-checkup' ),
+							$ext
+						);
+					}
+				}
+			}
+
+			if ( ! empty( $plugin_issues ) ) {
+				$issues[] = array(
+					'plugin' => $data['name'],
+					'issues' => $plugin_issues,
+				);
+			}
+		}
+
+		return $issues;
+	}
+
+	/**
+	 * Get plugin statistics
+	 *
+	 * @since 1.1.0
+	 * @return array
+	 */
+	public function get_statistics() {
+		$analysis = $this->analyze_all_plugins();
+		
+		$stats = array(
+			'total_plugins'           => count( $analysis ),
+			'plugins_with_requirements' => 0,
+			'plugins_without_requirements' => 0,
+			'most_common_extensions'  => array(),
+			'highest_memory_requirement' => '0M',
+			'average_memory_requirement' => '0M',
+			'last_analysis'           => get_option( 'as_php_checkup_last_analysis', 0 ),
+		);
+
+		$memory_requirements = array();
+		$extension_count = array();
+
+		foreach ( $analysis as $data ) {
+			if ( ! empty( $data['requirements'] ) ) {
+				$stats['plugins_with_requirements']++;
+				
+				// Collect memory requirements
+				if ( isset( $data['requirements']['memory_limit'] ) ) {
+					$memory_requirements[] = $data['requirements']['memory_limit'];
+				}
+				
+				// Count extensions
+				if ( isset( $data['requirements']['extensions'] ) ) {
+					foreach ( $data['requirements']['extensions'] as $ext => $required ) {
+						if ( $required ) {
+							if ( ! isset( $extension_count[ $ext ] ) ) {
+								$extension_count[ $ext ] = 0;
+							}
+							$extension_count[ $ext ]++;
+						}
+					}
+				}
+			} else {
+				$stats['plugins_without_requirements']++;
+			}
+		}
+
+		// Calculate highest memory requirement
+		if ( ! empty( $memory_requirements ) ) {
+			$highest_bytes = 0;
+			$total_bytes = 0;
+			
+			foreach ( $memory_requirements as $mem ) {
+				$bytes = $this->convert_to_bytes( $mem );
+				$highest_bytes = max( $highest_bytes, $bytes );
+				$total_bytes += $bytes;
+			}
+			
+			$stats['highest_memory_requirement'] = $this->format_bytes( $highest_bytes );
+			$stats['average_memory_requirement'] = $this->format_bytes( $total_bytes / count( $memory_requirements ) );
+		}
+
+		// Sort extensions by count
+		arsort( $extension_count );
+		$stats['most_common_extensions'] = array_slice( $extension_count, 0, 10, true );
+
+		return $stats;
+	}
+
+	/**
+	 * Format bytes to human readable
+	 *
+	 * @since 1.1.0
+	 * @param int $bytes Bytes value.
+	 * @return string
+	 */
+	private function format_bytes( $bytes ) {
+		if ( $bytes >= 1073741824 ) {
+			return round( $bytes / 1073741824, 1 ) . 'G';
+		} elseif ( $bytes >= 1048576 ) {
+			return round( $bytes / 1048576 ) . 'M';
+		} elseif ( $bytes >= 1024 ) {
+			return round( $bytes / 1024 ) . 'K';
+		}
+		
+		return $bytes . 'B';
+	}
+
+	/**
+	 * Clear plugin analysis cache
+	 *
+	 * @since 1.3.0
+	 * @return void
+	 */
+	public function clear_cache() {
+		$this->cache_manager->clear_plugin_analysis_cache();
 	}
 }

@@ -4,6 +4,7 @@
  *
  * @package AS_PHP_Checkup
  * @since 1.1.0
+ * @version 1.3.1
  */
 
 // Prevent direct access
@@ -32,7 +33,7 @@ class AS_PHP_Checkup_Dashboard_Widget {
 	 * @since 1.1.0
 	 * @var string
 	 */
-	private $widget_id = 'as_php_checkup_dashboard_widget';
+	private $widget_id = 'as_php_checkup_dashboard';
 
 	/**
 	 * Constructor
@@ -40,10 +41,10 @@ class AS_PHP_Checkup_Dashboard_Widget {
 	 * @since 1.1.0
 	 */
 	private function __construct() {
-		add_action( 'wp_dashboard_setup', array( $this, 'add_dashboard_widget' ) );
+		add_action( 'wp_dashboard_setup', array( $this, 'register_widget' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_widget_assets' ) );
-		add_action( 'wp_ajax_as_php_checkup_widget_refresh', array( $this, 'ajax_widget_refresh' ) );
-		add_action( 'wp_ajax_as_php_checkup_widget_details', array( $this, 'ajax_widget_details' ) );
+		add_action( 'wp_ajax_as_php_checkup_refresh_widget', array( $this, 'ajax_refresh_widget' ) );
+		add_action( 'wp_ajax_as_php_checkup_toggle_widget_view', array( $this, 'ajax_toggle_widget_view' ) );
 	}
 
 	/**
@@ -60,13 +61,12 @@ class AS_PHP_Checkup_Dashboard_Widget {
 	}
 
 	/**
-	 * Add dashboard widget
+	 * Register dashboard widget
 	 *
 	 * @since 1.1.0
 	 * @return void
 	 */
-	public function add_dashboard_widget() {
-		// Check user capabilities
+	public function register_widget() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
@@ -74,66 +74,72 @@ class AS_PHP_Checkup_Dashboard_Widget {
 		wp_add_dashboard_widget(
 			$this->widget_id,
 			__( 'PHP Configuration Status', 'as-php-checkup' ),
-			array( $this, 'render_widget' ),
-			array( $this, 'render_widget_config' )
+			array( $this, 'render_widget' )
 		);
 
 		// Move widget to top
 		global $wp_meta_boxes;
-		if ( isset( $wp_meta_boxes['dashboard']['normal']['core'][ $this->widget_id ] ) ) {
-			$widget_backup = $wp_meta_boxes['dashboard']['normal']['core'][ $this->widget_id ];
-			unset( $wp_meta_boxes['dashboard']['normal']['core'][ $this->widget_id ] );
-			
-			// Add to side column for better visibility
-			$wp_meta_boxes['dashboard']['side']['high'][ $this->widget_id ] = $widget_backup;
+		$dashboard = $wp_meta_boxes['dashboard']['normal']['core'];
+		
+		if ( isset( $dashboard[ $this->widget_id ] ) ) {
+			$widget_backup = $dashboard[ $this->widget_id ];
+			unset( $dashboard[ $this->widget_id ] );
+			$dashboard = array_merge( array( $this->widget_id => $widget_backup ), $dashboard );
+			$wp_meta_boxes['dashboard']['normal']['core'] = $dashboard;
 		}
 	}
 
-	/**
-	 * Render dashboard widget
-	 *
-	 * @since 1.1.0
-	 * @return void
-	 */
-	public function render_widget() {
-		$checkup = AS_PHP_Checkup::get_instance();
-		$results = $checkup->get_check_results();
-		
-		// Calculate status counts
-		$status_counts = array(
-			'optimal'    => 0,
-			'acceptable' => 0,
-			'warning'    => 0,
-		);
-		
-		$critical_issues = array();
-		$recommendations = array();
-		
-		foreach ( $results as $category ) {
-			foreach ( $category['items'] as $key => $item ) {
-				$status_counts[ $item['status'] ]++;
-				
-				// Collect critical issues
-				if ( 'warning' === $item['status'] ) {
-					$critical_issues[] = array(
-						'label'   => $item['label'],
-						'current' => $item['current'],
-						'needed'  => $item['recommended'],
-					);
-				} elseif ( 'acceptable' === $item['status'] ) {
-					$recommendations[] = array(
-						'label'   => $item['label'],
-						'current' => $item['current'],
-						'optimal' => $item['recommended'],
-					);
-				}
+/**
+ * Render widget content
+ *
+ * @since 1.1.0
+ * @version 1.3.2 - Fixed critical issues to only show errors, not warnings
+ * @return void
+ */
+public function render_widget() {
+	$checkup = AS_PHP_Checkup::get_instance();
+	$results = $checkup->get_check_results();
+	
+	// Calculate status counts
+	$status_counts = array(
+		'ok'      => 0,
+		'warning' => 0,
+		'error'   => 0,
+	);
+	
+	$critical_issues = array();  // Only for errors
+	$warnings = array();          // Separate array for warnings
+	$total_checks = 0;
+	
+	foreach ( $results as $category ) {
+		foreach ( $category['items'] as $item ) {
+			$total_checks++;
+			
+			// Map status correctly
+			if ( 'ok' === $item['status'] ) {
+				$status_counts['ok']++;
+			} elseif ( 'warning' === $item['status'] ) {
+				$status_counts['warning']++;
+				// Warnings are NOT critical - store them separately if needed
+				$warnings[] = array(
+					'label'   => $item['label'],
+					'current' => $item['current'],
+					'needed'  => $item['recommended'],
+				);
+			} elseif ( 'error' === $item['status'] ) {
+				$status_counts['error']++;
+				// Only errors are critical issues
+				$critical_issues[] = array(
+					'label'   => $item['label'],
+					'current' => $item['current'],
+					'needed'  => $item['recommended'],
+				);
 			}
 		}
+	}
 		
 		// Calculate health score
-		$total_checks = array_sum( $status_counts );
-		$health_score = $total_checks > 0 ? 
-		               round( ( ( $status_counts['optimal'] * 100 ) + ( $status_counts['acceptable'] * 50 ) ) / $total_checks ) : 0;
+		$health_score = $checkup->get_health_score();
 		
 		// Get last check time
 		$last_check = get_option( 'as_php_checkup_last_check', current_time( 'timestamp' ) );
@@ -141,226 +147,155 @@ class AS_PHP_Checkup_Dashboard_Widget {
 		
 		// Get plugin analysis info
 		$analyzer = AS_PHP_Checkup_Plugin_Analyzer::get_instance();
-		$analyzed_plugins = $analyzer->get_analyzed_data();
-		$plugins_with_requirements = count( $analyzed_plugins );
+		$analysis_report = $analyzer->get_analysis_report();
+		$plugins_analyzed = isset( $analysis_report['total_plugins'] ) ? $analysis_report['total_plugins'] : 0;
 		
-		// Determine overall status
-		$overall_status = 'optimal';
-		if ( $status_counts['warning'] > 0 ) {
-			$overall_status = 'warning';
-		} elseif ( $status_counts['acceptable'] > 2 ) {
-			$overall_status = 'acceptable';
+		// Output widget HTML - Clean structure without any floating elements
+		echo '<div class="as-php-checkup-widget-container">';
+		
+		// Health Score Circle
+		echo '<div class="widget-health-score">';
+		echo '<div class="health-circle ' . esc_attr( $this->get_health_class( $health_score ) ) . '">';
+		echo '<svg viewBox="0 0 36 36" class="circular-chart">';
+		echo '<path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />';
+		echo '<path class="circle" stroke-dasharray="' . esc_attr( $health_score ) . ', 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />';
+		echo '<text x="18" y="21.5" class="percentage">' . esc_html( $health_score ) . '%</text>';
+		echo '</svg>';
+		echo '<div class="health-label">' . esc_html__( 'HEALTH', 'as-php-checkup' ) . '</div>';
+		echo '</div>';
+		echo '</div>';
+		
+		// Stats Grid
+		echo '<div class="widget-stats-grid">';
+		
+		// PHP Version
+		echo '<div class="stat-box">';
+		echo '<div class="stat-value">' . esc_html( PHP_VERSION ) . '</div>';
+		echo '<div class="stat-label">' . esc_html__( 'PHP VERSION', 'as-php-checkup' ) . '</div>';
+		echo '</div>';
+		
+		// Last Check
+		echo '<div class="stat-box">';
+		echo '<div class="stat-value">' . esc_html( $time_diff ) . '</div>';
+		echo '<div class="stat-label">' . esc_html__( 'LAST CHECK', 'as-php-checkup' ) . '</div>';
+		echo '</div>';
+		
+		// Plugins Analyzed
+		echo '<div class="stat-box">';
+		echo '<div class="stat-value">' . esc_html( $plugins_analyzed ) . '</div>';
+		echo '<div class="stat-label">' . esc_html__( 'PLUGINS ANALYZED', 'as-php-checkup' ) . '</div>';
+		echo '</div>';
+		
+		echo '</div>'; // End stats grid
+		
+		// Status Bar
+		echo '<div class="widget-status-bar">';
+		
+		if ( $total_checks > 0 ) {
+			$ok_width = round( ( $status_counts['ok'] / $total_checks ) * 100, 1 );
+			$warning_width = round( ( $status_counts['warning'] / $total_checks ) * 100, 1 );
+			$error_width = round( ( $status_counts['error'] / $total_checks ) * 100, 1 );
+			
+			if ( $ok_width > 0 ) {
+				echo '<div class="status-segment ok" style="width: ' . esc_attr( $ok_width ) . '%;" title="' . 
+					 esc_attr( sprintf( __( '%d Passed', 'as-php-checkup' ), $status_counts['ok'] ) ) . '">';
+				echo '<span>' . esc_html( $status_counts['ok'] ) . '</span>';
+				echo '</div>';
+			}
+			
+			if ( $warning_width > 0 ) {
+				echo '<div class="status-segment warning" style="width: ' . esc_attr( $warning_width ) . '%;" title="' . 
+					 esc_attr( sprintf( __( '%d Warnings', 'as-php-checkup' ), $status_counts['warning'] ) ) . '">';
+				echo '<span>' . esc_html( $status_counts['warning'] ) . '</span>';
+				echo '</div>';
+			}
+			
+			// if ( $error_width > 0 ) {
+			// 	echo '<div class="status-segment error" style="width: ' . esc_attr( $error_width ) . '%;" title="' . 
+			// 		 esc_attr( sprintf( __( '%d Failed', 'as-php-checkup' ), $status_counts['error'] ) ) . '">';
+			// 	echo '<span>' . esc_html( $status_counts['error'] ) . '</span>';
+			// 	echo '</div>';
+			// }
 		}
 		
-		?>
-		<div class="as-php-checkup-widget" data-status="<?php echo esc_attr( $overall_status ); ?>">
-			<div class="widget-header">
-				<div class="health-score-mini" data-score="<?php echo esc_attr( $health_score ); ?>">
-					<svg viewBox="0 0 36 36" class="circular-chart <?php echo esc_attr( $overall_status ); ?>">
-						<path class="circle-bg"
-							d="M18 2.0845
-							a 15.9155 15.9155 0 0 1 0 31.831
-							a 15.9155 15.9155 0 0 1 0 -31.831"
-						/>
-						<path class="circle"
-							stroke-dasharray="<?php echo esc_attr( $health_score ); ?>, 100"
-							d="M18 2.0845
-							a 15.9155 15.9155 0 0 1 0 31.831
-							a 15.9155 15.9155 0 0 1 0 -31.831"
-						/>
-						<text x="18" y="21.5" class="percentage"><?php echo esc_html( $health_score ); ?>%</text>
-					</svg>
-				</div>
-				
-				<div class="widget-summary">
-					<h3 class="health-title">
-						<?php
-						if ( 'optimal' === $overall_status ) {
-							esc_html_e( 'Excellent Configuration', 'as-php-checkup' );
-						} elseif ( 'acceptable' === $overall_status ) {
-							esc_html_e( 'Good Configuration', 'as-php-checkup' );
-						} else {
-							esc_html_e( 'Needs Attention', 'as-php-checkup' );
-						}
-						?>
-					</h3>
-					<p class="health-subtitle">
-						<?php
-						printf(
-							/* translators: %s: time difference */
-							esc_html__( 'Last checked %s ago', 'as-php-checkup' ),
-							esc_html( $time_diff )
-						);
-						?>
-					</p>
-				</div>
-			</div>
-			
-			<div class="widget-stats">
-				<div class="stat-item optimal">
-					<span class="stat-icon">✓</span>
-					<span class="stat-number"><?php echo esc_html( $status_counts['optimal'] ); ?></span>
-					<span class="stat-label"><?php esc_html_e( 'Optimal', 'as-php-checkup' ); ?></span>
-				</div>
-				<div class="stat-item acceptable">
-					<span class="stat-icon">!</span>
-					<span class="stat-number"><?php echo esc_html( $status_counts['acceptable'] ); ?></span>
-					<span class="stat-label"><?php esc_html_e( 'Acceptable', 'as-php-checkup' ); ?></span>
-				</div>
-				<div class="stat-item warning">
-					<span class="stat-icon">✗</span>
-					<span class="stat-number"><?php echo esc_html( $status_counts['warning'] ); ?></span>
-					<span class="stat-label"><?php esc_html_e( 'Issues', 'as-php-checkup' ); ?></span>
-				</div>
-			</div>
-			
-			<?php if ( ! empty( $critical_issues ) ) : ?>
-				<div class="widget-issues">
-					<h4><?php esc_html_e( 'Critical Issues:', 'as-php-checkup' ); ?></h4>
-					<ul class="issue-list">
-						<?php foreach ( array_slice( $critical_issues, 0, 3 ) as $issue ) : ?>
-							<li>
-								<span class="issue-label"><?php echo esc_html( $issue['label'] ); ?>:</span>
-								<span class="issue-values">
-									<span class="current"><?php echo esc_html( $issue['current'] ?: __( 'Not set', 'as-php-checkup' ) ); ?></span>
-									<span class="arrow">→</span>
-									<span class="needed"><?php echo esc_html( $issue['needed'] ); ?></span>
-								</span>
-							</li>
-						<?php endforeach; ?>
-					</ul>
-					<?php if ( count( $critical_issues ) > 3 ) : ?>
-						<p class="more-issues">
-							<?php
-							printf(
-								/* translators: %d: number of additional issues */
-								esc_html__( '... and %d more issues', 'as-php-checkup' ),
-								count( $critical_issues ) - 3
-							);
-							?>
-						</p>
-					<?php endif; ?>
-				</div>
-			<?php elseif ( ! empty( $recommendations ) ) : ?>
-				<div class="widget-recommendations">
-					<h4><?php esc_html_e( 'Optimization Opportunities:', 'as-php-checkup' ); ?></h4>
-					<ul class="recommendation-list">
-						<?php foreach ( array_slice( $recommendations, 0, 3 ) as $recommendation ) : ?>
-							<li>
-								<span class="rec-label"><?php echo esc_html( $recommendation['label'] ); ?></span>
-								<span class="rec-status"><?php esc_html_e( 'Can be improved', 'as-php-checkup' ); ?></span>
-							</li>
-						<?php endforeach; ?>
-					</ul>
-				</div>
-			<?php else : ?>
-				<div class="widget-success">
-					<p class="success-message">
-						<span class="dashicons dashicons-yes-alt"></span>
-						<?php esc_html_e( 'All PHP settings are optimally configured!', 'as-php-checkup' ); ?>
-					</p>
-				</div>
-			<?php endif; ?>
-			
-			<div class="widget-plugins-info">
-				<p>
-					<span class="dashicons dashicons-admin-plugins"></span>
-					<?php
-					printf(
-						/* translators: %d: number of plugins */
-						esc_html__( 'Requirements from %d plugin(s) analyzed', 'as-php-checkup' ),
-						$plugins_with_requirements
-					);
-					?>
-				</p>
-			</div>
-			
-			<div class="widget-actions">
-				<button type="button" class="button button-primary widget-refresh" id="widget-refresh-check">
-					<span class="dashicons dashicons-update"></span>
-					<?php esc_html_e( 'Refresh', 'as-php-checkup' ); ?>
-				</button>
-				<a href="<?php echo esc_url( admin_url( 'tools.php?page=as-php-checkup' ) ); ?>" class="button">
-					<span class="dashicons dashicons-visibility"></span>
-					<?php esc_html_e( 'View Details', 'as-php-checkup' ); ?>
-				</a>
-			</div>
-			
-			<div class="widget-footer">
-				<small>
-					<?php
-					printf(
-						/* translators: %s: plugin name with version */
-						esc_html__( 'Powered by %s', 'as-php-checkup' ),
-						'AS PHP Checkup v' . AS_PHP_CHECKUP_VERSION
-					);
-					?>
-				</small>
-			</div>
-		</div>
-		<?php
+		echo '</div>'; // End status bar
+		
+		// Status Legend
+		echo '<div class="widget-status-legend">';
+		echo '<span class="legend-item ok">● ' . sprintf( esc_html__( 'Passed: %d', 'as-php-checkup' ), $status_counts['ok'] ) . '</span>';
+		echo '<span class="legend-item warning">● ' . sprintf( esc_html__( 'Warnings: %d', 'as-php-checkup' ), $status_counts['warning'] ) . '</span>';
+		echo '<span class="legend-item error">● ' . sprintf( esc_html__( 'Failed: %d', 'as-php-checkup' ), $status_counts['error'] ) . '</span>';
+		echo '</div>';
+		
+		// Critical Issues Section - Only show if there are REAL errors
+	if ( ! empty( $critical_issues ) ) {
+		echo '<div class="widget-critical-section">';
+		echo '<h4>' . esc_html__( 'CRITICAL ISSUES', 'as-php-checkup' ) . ' (' . count( $critical_issues ) . ')</h4>';
+		
+		$displayed_issues = array_slice( $critical_issues, 0, 3 );
+		foreach ( $displayed_issues as $issue ) {
+			echo '<div class="critical-issue">';
+			echo '<div class="issue-name">' . esc_html( $issue['label'] ) . '</div>';
+			echo '<div class="issue-values">';
+			echo '<span class="current-val">' . esc_html( $issue['current'] ?: 'Not set' ) . '</span>';
+			echo '<span class="arrow">→</span>';
+			echo '<span class="needed-val">' . esc_html( $issue['needed'] ) . '</span>';
+			echo '</div>';
+			echo '</div>';
+		}
+		
+		if ( count( $critical_issues ) > 3 ) {
+			echo '<div class="more-issues">... ' . sprintf( 
+				esc_html__( 'and %d more', 'as-php-checkup' ),
+				count( $critical_issues ) - 3 
+			) . '</div>';
+		}
+		
+		echo '</div>'; // End critical section
+	}
+	
+	// Optional: Show warnings section separately if desired
+	if ( ! empty( $warnings ) && false ) { // Set to true if you want to show warnings separately
+		echo '<div class="widget-warnings-section">';
+		echo '<h4>' . esc_html__( 'WARNINGS', 'as-php-checkup' ) . ' (' . count( $warnings ) . ')</h4>';
+		// ... Display warnings here if needed ...
+		echo '</div>';
+	}
+		
+		// Action Buttons
+		echo '<div class="widget-actions">';
+		echo '<a href="' . esc_url( admin_url( 'tools.php?page=as-php-checkup' ) ) . '" class="button button-primary">';
+		echo '<span class="dashicons dashicons-admin-tools"></span> ' . esc_html__( 'View Details', 'as-php-checkup' );
+		echo '</a>';
+		echo '<button class="button refresh-widget" data-nonce="' . esc_attr( wp_create_nonce( 'as_php_checkup_widget' ) ) . '">';
+		echo '<span class="dashicons dashicons-update"></span> ' . esc_html__( 'Refresh', 'as-php-checkup' );
+		echo '</button>';
+		echo '</div>';
+		
+		// Auto-refresh indicator
+		echo '<div class="widget-footer">';
+		echo '<span class="auto-refresh-indicator">● ' . esc_html__( 'Auto-refresh enabled', 'as-php-checkup' ) . '</span>';
+		echo '</div>';
+		
+		echo '</div>'; // End widget container
 	}
 
 	/**
-	 * Render widget configuration form
+	 * Get health score class
 	 *
 	 * @since 1.1.0
-	 * @return void
+	 * @param int $score Health score.
+	 * @return string
 	 */
-	public function render_widget_config() {
-		// Get widget options
-		$options = get_option( 'as_php_checkup_widget_options', array(
-			'auto_refresh'      => true,
-			'show_critical'     => true,
-			'show_plugin_info'  => true,
-			'compact_mode'      => false,
-		) );
-		
-		// Handle form submission
-		if ( isset( $_POST['as_php_checkup_widget_submit'] ) ) {
-			// Verify nonce
-			if ( ! isset( $_POST['as_php_checkup_widget_nonce'] ) || 
-			     ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['as_php_checkup_widget_nonce'] ) ), 'as_php_checkup_widget_config' ) ) {
-				wp_die( esc_html__( 'Security check failed', 'as-php-checkup' ) );
-			}
-			
-			// Update options
-			$options['auto_refresh'] = isset( $_POST['auto_refresh'] );
-			$options['show_critical'] = isset( $_POST['show_critical'] );
-			$options['show_plugin_info'] = isset( $_POST['show_plugin_info'] );
-			$options['compact_mode'] = isset( $_POST['compact_mode'] );
-			
-			update_option( 'as_php_checkup_widget_options', $options );
+	private function get_health_class( $score ) {
+		if ( $score >= 90 ) {
+			return 'excellent';
+		} elseif ( $score >= 70 ) {
+			return 'good';
+		} elseif ( $score >= 50 ) {
+			return 'warning';
 		}
-		
-		?>
-		<p>
-			<label>
-				<input type="checkbox" name="auto_refresh" value="1" <?php checked( $options['auto_refresh'] ); ?> />
-				<?php esc_html_e( 'Enable auto-refresh (every 5 minutes)', 'as-php-checkup' ); ?>
-			</label>
-		</p>
-		<p>
-			<label>
-				<input type="checkbox" name="show_critical" value="1" <?php checked( $options['show_critical'] ); ?> />
-				<?php esc_html_e( 'Show critical issues', 'as-php-checkup' ); ?>
-			</label>
-		</p>
-		<p>
-			<label>
-				<input type="checkbox" name="show_plugin_info" value="1" <?php checked( $options['show_plugin_info'] ); ?> />
-				<?php esc_html_e( 'Show plugin analysis info', 'as-php-checkup' ); ?>
-			</label>
-		</p>
-		<p>
-			<label>
-				<input type="checkbox" name="compact_mode" value="1" <?php checked( $options['compact_mode'] ); ?> />
-				<?php esc_html_e( 'Compact display mode', 'as-php-checkup' ); ?>
-			</label>
-		</p>
-		<?php wp_nonce_field( 'as_php_checkup_widget_config', 'as_php_checkup_widget_nonce' ); ?>
-		<input type="hidden" name="as_php_checkup_widget_submit" value="1" />
-		<?php
+		return 'critical';
 	}
 
 	/**
@@ -371,151 +306,91 @@ class AS_PHP_Checkup_Dashboard_Widget {
 	 * @return void
 	 */
 	public function enqueue_widget_assets( $hook_suffix ) {
-		// Only load on dashboard
 		if ( 'index.php' !== $hook_suffix ) {
 			return;
 		}
-		
-		// Check if styles are already registered
-		if ( ! wp_style_is( 'as-php-checkup-widget', 'registered' ) ) {
-			wp_register_style(
-				'as-php-checkup-widget',
-				AS_PHP_CHECKUP_PLUGIN_URL . 'assets/css/widget-style.css',
-				array(),
-				AS_PHP_CHECKUP_VERSION,
-				'all'
-			);
-		}
-		
-		// Check if scripts are already registered
+
+		// Check if scripts are registered before enqueueing
 		if ( ! wp_script_is( 'as-php-checkup-widget', 'registered' ) ) {
 			wp_register_script(
 				'as-php-checkup-widget',
 				AS_PHP_CHECKUP_PLUGIN_URL . 'assets/js/widget-script.js',
-				array( 'jquery', 'wp-util' ),
+				array( 'jquery', 'dashboard' ),
 				AS_PHP_CHECKUP_VERSION,
 				true
 			);
 		}
 		
-		wp_enqueue_style( 'as-php-checkup-widget' );
 		wp_enqueue_script( 'as-php-checkup-widget' );
 		
-		// Get widget options
-		$options = get_option( 'as_php_checkup_widget_options', array(
-			'auto_refresh' => true,
+		wp_localize_script( 'as-php-checkup-widget', 'asPhpCheckupWidget', array(
+			'ajaxurl' => admin_url( 'admin-ajax.php' ),
+			'nonce'   => wp_create_nonce( 'as_php_checkup_widget' ),
+			'strings' => array(
+				'refreshing'     => __( 'Refreshing...', 'as-php-checkup' ),
+				'refresh_error'  => __( 'Error refreshing data', 'as-php-checkup' ),
+			),
 		) );
+
+		if ( ! wp_style_is( 'as-php-checkup-widget', 'registered' ) ) {
+			wp_register_style(
+				'as-php-checkup-widget',
+				AS_PHP_CHECKUP_PLUGIN_URL . 'assets/css/widget-style.css',
+				array(),
+				AS_PHP_CHECKUP_VERSION
+			);
+		}
 		
-		// Localize script
-		wp_localize_script(
-			'as-php-checkup-widget',
-			'asPhpCheckupWidget',
-			array(
-				'ajaxUrl'      => admin_url( 'admin-ajax.php' ),
-				'nonce'        => wp_create_nonce( 'as_php_checkup_widget_nonce' ),
-				'refreshing'   => __( 'Refreshing...', 'as-php-checkup' ),
-				'error'        => __( 'An error occurred. Please try again.', 'as-php-checkup' ),
-				'autoRefresh'  => $options['auto_refresh'],
-				'detailsUrl'   => admin_url( 'tools.php?page=as-php-checkup' ),
-			)
-		);
+		wp_enqueue_style( 'as-php-checkup-widget' );
 	}
 
 	/**
-	 * AJAX handler for widget refresh
+	 * AJAX handler to refresh widget
 	 *
 	 * @since 1.1.0
 	 * @return void
 	 */
-	public function ajax_widget_refresh() {
-		// Verify nonce
-		if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'as_php_checkup_widget_nonce' ) ) {
-			wp_send_json_error( __( 'Invalid nonce', 'as-php-checkup' ) );
-		}
-		
-		// Check user capabilities
+	public function ajax_refresh_widget() {
+		check_ajax_referer( 'as_php_checkup_widget', 'nonce' );
+
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( __( 'Insufficient permissions', 'as-php-checkup' ) );
+			wp_die( esc_html__( 'Insufficient permissions', 'as-php-checkup' ) );
 		}
-		
-		// Clear cache
-		wp_cache_flush();
-		
-		// Update last check time
-		update_option( 'as_php_checkup_last_check', current_time( 'timestamp' ) );
-		
-		// Get fresh results
+
+		// Clear cache and get fresh data
 		$checkup = AS_PHP_Checkup::get_instance();
-		$results = $checkup->get_check_results();
+		$checkup->clear_cache();
 		
-		// Calculate status counts
-		$status_counts = array(
-			'optimal'    => 0,
-			'acceptable' => 0,
-			'warning'    => 0,
-		);
-		
-		$critical_issues = array();
-		
-		foreach ( $results as $category ) {
-			foreach ( $category['items'] as $item ) {
-				$status_counts[ $item['status'] ]++;
-				
-				if ( 'warning' === $item['status'] ) {
-					$critical_issues[] = array(
-						'label'   => $item['label'],
-						'current' => $item['current'],
-						'needed'  => $item['recommended'],
-					);
-				}
-			}
-		}
-		
-		// Calculate health score
-		$total_checks = array_sum( $status_counts );
-		$health_score = $total_checks > 0 ? 
-		               round( ( ( $status_counts['optimal'] * 100 ) + ( $status_counts['acceptable'] * 50 ) ) / $total_checks ) : 0;
-		
+		// Render widget content
+		ob_start();
+		$this->render_widget();
+		$html = ob_get_clean();
+
 		wp_send_json_success( array(
-			'health_score'    => $health_score,
-			'status_counts'   => $status_counts,
-			'critical_issues' => array_slice( $critical_issues, 0, 3 ),
-			'overall_status'  => $status_counts['warning'] > 0 ? 'warning' : ( $status_counts['acceptable'] > 2 ? 'acceptable' : 'optimal' ),
-			'time'            => current_time( 'mysql' ),
+			'html' => $html,
 		) );
 	}
 
 	/**
-	 * AJAX handler for widget details
+	 * AJAX handler to toggle widget view
 	 *
 	 * @since 1.1.0
 	 * @return void
 	 */
-	public function ajax_widget_details() {
-		// Verify nonce
-		if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'as_php_checkup_widget_nonce' ) ) {
-			wp_send_json_error( __( 'Invalid nonce', 'as-php-checkup' ) );
-		}
-		
-		// Check user capabilities
+	public function ajax_toggle_widget_view() {
+		check_ajax_referer( 'as_php_checkup_widget', 'nonce' );
+
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( __( 'Insufficient permissions', 'as-php-checkup' ) );
+			wp_die( esc_html__( 'Insufficient permissions', 'as-php-checkup' ) );
 		}
-		
-		$checkup = AS_PHP_Checkup::get_instance();
-		$results = $checkup->get_check_results();
-		$system_info = $checkup->get_system_info();
-		
-		// Prepare detailed data
-		$details = array(
-			'php_version'   => PHP_VERSION,
-			'memory_limit'  => ini_get( 'memory_limit' ),
-			'max_exec_time' => ini_get( 'max_execution_time' ),
-			'upload_size'   => ini_get( 'upload_max_filesize' ),
-			'server'        => $system_info['server']['software'],
-			'results'       => $results,
-		);
-		
-		wp_send_json_success( $details );
+
+		// For now, just refresh the widget
+		ob_start();
+		$this->render_widget();
+		$html = ob_get_clean();
+
+		wp_send_json_success( array(
+			'html' => $html,
+		) );
 	}
 }

@@ -1,9 +1,10 @@
 <?php
 /**
- * PHP Checkup Core Class
+ * Core Checkup Class
  *
  * @package AS_PHP_Checkup
  * @since 1.0.0
+ * @version 1.3.1
  */
 
 // Prevent direct access
@@ -27,15 +28,194 @@ class AS_PHP_Checkup {
 	private static $instance = null;
 
 	/**
-	 * Recommended PHP settings
+	 * Cache key
+	 *
+	 * @since 1.0.0
+	 * @var string
+	 */
+	private $cache_key = 'as_php_checkup_results';
+
+	/**
+	 * Cache expiration time
+	 *
+	 * @since 1.0.0
+	 * @var int
+	 */
+	private $cache_expiration = 300; // 5 minutes
+
+	/**
+	 * Recommended settings
 	 *
 	 * @since 1.0.0
 	 * @var array
 	 */
-	private $recommended_settings = array();
+	private $recommended_settings = array(
+		'basic' => array(
+			'memory_limit' => array(
+				'label'       => 'Memory Limit',
+				'recommended' => '256M',
+				'minimum'     => '128M',
+				'type'        => 'memory',
+				'description' => 'The maximum amount of memory a script may consume',
+			),
+			'max_execution_time' => array(
+				'label'       => 'Max Execution Time',
+				'recommended' => '120',
+				'minimum'     => '60',
+				'type'        => 'integer',
+				'description' => 'Maximum execution time of each script, in seconds',
+			),
+			'max_input_time' => array(
+				'label'       => 'Max Input Time',
+				'recommended' => '120',
+				'minimum'     => '60',
+				'type'        => 'integer',
+				'description' => 'Maximum amount of time each script may spend parsing request data',
+			),
+			'max_input_vars' => array(
+				'label'       => 'Max Input Vars',
+				'recommended' => '3000',
+				'minimum'     => '1000',
+				'type'        => 'integer',
+				'description' => 'Maximum number of input variables allowed',
+			),
+			'post_max_size' => array(
+				'label'       => 'Post Max Size',
+				'recommended' => '64M',
+				'minimum'     => '32M',
+				'type'        => 'memory',
+				'description' => 'Maximum size of POST data that PHP will accept',
+			),
+			'upload_max_filesize' => array(
+				'label'       => 'Upload Max Filesize',
+				'recommended' => '64M',
+				'minimum'     => '32M',
+				'type'        => 'memory',
+				'description' => 'Maximum allowed size for uploaded files',
+			),
+			'max_file_uploads' => array(
+				'label'       => 'Max File Uploads',
+				'recommended' => '50',
+				'minimum'     => '20',
+				'type'        => 'integer',
+				'description' => 'Maximum number of files that can be uploaded simultaneously',
+			),
+			'allow_url_fopen' => array(
+				'label'       => 'Allow URL Fopen',
+				'recommended' => 'On',
+				'minimum'     => 'On',
+				'type'        => 'boolean_string',
+				'description' => 'Whether to allow treatment of URLs as files',
+			),
+		),
+		'session' => array(
+			'session.gc_maxlifetime' => array(
+				'label'       => 'Session GC Max Lifetime',
+				'recommended' => '1440',
+				'minimum'     => '1440',
+				'type'        => 'integer',
+				'description' => 'Number of seconds after which data will be seen as garbage',
+			),
+			'session.save_handler' => array(
+				'label'       => 'Session Save Handler',
+				'recommended' => 'files',
+				'minimum'     => 'files',
+				'type'        => 'string',
+				'description' => 'Handler used to store/retrieve session data',
+			),
+			'session.cookie_httponly' => array(
+				'label'       => 'Cookie HTTPOnly',
+				'recommended' => '1',
+				'minimum'     => '1',
+				'type'        => 'boolean',
+				'description' => 'Marks the cookie as accessible only through the HTTP protocol',
+			),
+			'session.use_only_cookies' => array(
+				'label'       => 'Use Only Cookies',
+				'recommended' => '1',
+				'minimum'     => '1',
+				'type'        => 'boolean',
+				'description' => 'Specifies whether the module will only use cookies',
+			),
+			'session.cookie_secure' => array(
+				'label'       => 'Cookie Secure',
+				'recommended' => '1',
+				'minimum'     => '0',
+				'type'        => 'boolean',
+				'description' => 'Marks the cookie as secure (HTTPS only)',
+			),
+		),
+		'opcache' => array(
+			'opcache.enable' => array(
+				'label'       => 'OPcache Enable',
+				'recommended' => '1',
+				'minimum'     => '1',
+				'type'        => 'boolean',
+				'description' => 'Enable the OPcache for better performance',
+			),
+			'opcache.memory_consumption' => array(
+				'label'       => 'OPcache Memory',
+				'recommended' => '128',
+				'minimum'     => '64',
+				'type'        => 'integer',
+				'description' => 'The OPcache shared memory storage size in MB',
+			),
+			'opcache.max_accelerated_files' => array(
+				'label'       => 'Max Accelerated Files',
+				'recommended' => '10000',
+				'minimum'     => '4000',
+				'type'        => 'integer',
+				'description' => 'Maximum number of scripts that can be cached',
+			),
+			'opcache.validate_timestamps' => array(
+				'label'       => 'Validate Timestamps',
+				'recommended' => '1',
+				'minimum'     => '1',
+				'type'        => 'boolean',
+				'description' => 'Check for updated scripts based on timestamps',
+			),
+			'opcache.revalidate_freq' => array(
+				'label'       => 'OPcache Revalidate Frequency',
+				'recommended' => '1',
+				'minimum'     => '2',
+				'type'        => 'integer_inverse', // Lower is better!
+				'description' => 'Frequency of checking for updated scripts in seconds',
+			),
+			'opcache.save_comments' => array(
+				'label'       => 'Save Comments',
+				'recommended' => '1',
+				'minimum'     => '1',
+				'type'        => 'boolean',
+				'description' => 'Load comments from script files',
+			),
+			'opcache.interned_strings_buffer' => array(
+				'label'       => 'Interned Strings Buffer',
+				'recommended' => '16',
+				'minimum'     => '8',
+				'type'        => 'integer',
+				'description' => 'Amount of memory for interned strings in MB',
+			),
+		),
+		'performance' => array(
+			'realpath_cache_size' => array(
+				'label'       => 'Realpath Cache Size',
+				'recommended' => '4096K',
+				'minimum'     => '2048K',
+				'type'        => 'memory',
+				'description' => 'Size of the realpath cache',
+			),
+			'realpath_cache_ttl' => array(
+				'label'       => 'Realpath Cache TTL',
+				'recommended' => '120',
+				'minimum'     => '60',
+				'type'        => 'integer',
+				'description' => 'Duration of time for which realpath information is cached',
+			),
+		),
+	);
 
 	/**
-	 * Plugin-based requirements
+	 * Plugin requirements loaded from analyzer
 	 *
 	 * @since 1.1.0
 	 * @var array
@@ -48,8 +228,8 @@ class AS_PHP_Checkup {
 	 * @since 1.0.0
 	 */
 	private function __construct() {
-		$this->set_recommended_settings();
-		$this->load_plugin_requirements();
+		// Load plugin requirements on init
+		add_action( 'init', array( $this, 'load_plugin_requirements' ) );
 	}
 
 	/**
@@ -66,214 +246,54 @@ class AS_PHP_Checkup {
 	}
 
 	/**
-	 * Load plugin-based requirements
+	 * Load plugin requirements from analyzer
 	 *
 	 * @since 1.1.0
 	 * @return void
 	 */
-	private function load_plugin_requirements() {
+	public function load_plugin_requirements() {
 		$analyzer = AS_PHP_Checkup_Plugin_Analyzer::get_instance();
-		$this->plugin_requirements = $analyzer->get_combined_requirements();
+		$this->plugin_requirements = $analyzer->get_aggregated_requirements();
 		
-		// Merge plugin requirements with base recommendations
-		$this->merge_plugin_requirements();
+		// Merge plugin requirements into recommended settings
+		if ( ! empty( $this->plugin_requirements ) ) {
+			foreach ( $this->plugin_requirements as $key => $value ) {
+				if ( 'extensions' === $key || 'sources' === $key ) {
+					continue;
+				}
+				
+				// Find and update the corresponding setting
+				foreach ( $this->recommended_settings as $category => &$settings ) {
+					foreach ( $settings as $setting_key => &$config ) {
+						if ( $this->normalize_setting_key( $setting_key ) === $this->normalize_setting_key( $key ) ) {
+							// Update recommended value if plugin requires more
+							if ( 'memory' === $config['type'] ) {
+								$current_bytes = $this->convert_to_bytes( $config['recommended'] );
+								$plugin_bytes = $this->convert_to_bytes( $value );
+								if ( $plugin_bytes > $current_bytes ) {
+									$config['recommended'] = $value;
+								}
+							} elseif ( 'integer' === $config['type'] ) {
+								if ( intval( $value ) > intval( $config['recommended'] ) ) {
+									$config['recommended'] = $value;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 
 	/**
-	 * Merge plugin requirements with base settings
+	 * Normalize setting key for comparison
 	 *
 	 * @since 1.1.0
-	 * @return void
+	 * @param string $key Setting key.
+	 * @return string
 	 */
-	private function merge_plugin_requirements() {
-		if ( empty( $this->plugin_requirements ) ) {
-			return;
-		}
-		
-		// Update basic settings based on plugin requirements
-		if ( isset( $this->plugin_requirements['memory_limit'] ) ) {
-			$this->recommended_settings['basic']['memory_limit']['recommended'] = $this->plugin_requirements['memory_limit'];
-		}
-		
-		if ( isset( $this->plugin_requirements['max_input_vars'] ) ) {
-			$this->recommended_settings['basic']['max_input_vars']['recommended'] = $this->plugin_requirements['max_input_vars'];
-		}
-		
-		if ( isset( $this->plugin_requirements['max_execution_time'] ) ) {
-			$this->recommended_settings['basic']['max_execution_time']['recommended'] = $this->plugin_requirements['max_execution_time'];
-		}
-		
-		if ( isset( $this->plugin_requirements['upload_max_filesize'] ) ) {
-			$this->recommended_settings['basic']['upload_max_filesize']['recommended'] = $this->plugin_requirements['upload_max_filesize'];
-		}
-		
-		if ( isset( $this->plugin_requirements['post_max_size'] ) ) {
-			$this->recommended_settings['basic']['post_max_size']['recommended'] = $this->plugin_requirements['post_max_size'];
-		}
-		
-		// PHP version requirement
-		if ( isset( $this->plugin_requirements['php_version'] ) ) {
-			$this->recommended_settings['basic']['php_version']['recommended'] = $this->plugin_requirements['php_version'];
-		}
-	}
-
-	/**
-	 * Set recommended PHP settings
-	 *
-	 * @since 1.0.0
-	 * @return void
-	 */
-	private function set_recommended_settings() {
-		$this->recommended_settings = array(
-			'basic' => array(
-				'php_version' => array(
-					'label'       => __( 'PHP Version', 'as-php-checkup' ),
-					'recommended' => '8.3',
-					'minimum'     => '7.4',
-					'type'        => 'version',
-					'description' => __( 'PHP 8.3+ recommended for best performance and security', 'as-php-checkup' ),
-				),
-				'memory_limit' => array(
-					'label'       => __( 'Memory Limit', 'as-php-checkup' ),
-					'recommended' => '768M',
-					'minimum'     => '256M',
-					'type'        => 'memory',
-					'description' => __( 'Higher memory limit allows for complex operations', 'as-php-checkup' ),
-				),
-				'max_input_vars' => array(
-					'label'       => __( 'Max Input Vars', 'as-php-checkup' ),
-					'recommended' => 6000,
-					'minimum'     => 3000,
-					'type'        => 'integer',
-					'description' => __( 'Required for complex forms and menu structures', 'as-php-checkup' ),
-				),
-				'post_max_size' => array(
-					'label'       => __( 'Max Post Size', 'as-php-checkup' ),
-					'recommended' => '256M',
-					'minimum'     => '64M',
-					'type'        => 'memory',
-					'description' => __( 'Maximum size of POST data', 'as-php-checkup' ),
-				),
-				'upload_max_filesize' => array(
-					'label'       => __( 'Max Upload Size', 'as-php-checkup' ),
-					'recommended' => '256M',
-					'minimum'     => '64M',
-					'type'        => 'memory',
-					'description' => __( 'Maximum allowed file upload size', 'as-php-checkup' ),
-				),
-				'max_execution_time' => array(
-					'label'       => __( 'Max Execution Time', 'as-php-checkup' ),
-					'recommended' => 600,
-					'minimum'     => 300,
-					'type'        => 'integer',
-					'description' => __( 'Maximum script execution time in seconds', 'as-php-checkup' ),
-				),
-				'max_input_time' => array(
-					'label'       => __( 'Max Input Time', 'as-php-checkup' ),
-					'recommended' => 600,
-					'minimum'     => 60,
-					'type'        => 'integer',
-					'description' => __( 'Maximum time to parse input data', 'as-php-checkup' ),
-				),
-			),
-			'session' => array(
-				'session.gc_maxlifetime' => array(
-					'label'       => __( 'Session GC Max Lifetime', 'as-php-checkup' ),
-					'recommended' => 1440,
-					'minimum'     => 1440,
-					'type'        => 'integer',
-					'description' => __( 'Session garbage collection lifetime', 'as-php-checkup' ),
-				),
-			),
-			'opcache' => array(
-				'opcache.enable' => array(
-					'label'       => __( 'OPcache Enable', 'as-php-checkup' ),
-					'recommended' => 1,
-					'minimum'     => 1,
-					'type'        => 'boolean',
-					'description' => __( 'Enable OPcache for better performance', 'as-php-checkup' ),
-				),
-				'opcache.memory_consumption' => array(
-					'label'       => __( 'OPcache Memory', 'as-php-checkup' ),
-					'recommended' => 384,
-					'minimum'     => 128,
-					'type'        => 'integer',
-					'description' => __( 'OPcache memory consumption in MB', 'as-php-checkup' ),
-				),
-				'opcache.max_accelerated_files' => array(
-					'label'       => __( 'OPcache Max Files', 'as-php-checkup' ),
-					'recommended' => 150000,
-					'minimum'     => 10000,
-					'type'        => 'integer',
-					'description' => __( 'Maximum number of cached files', 'as-php-checkup' ),
-				),
-				'opcache.interned_strings_buffer' => array(
-					'label'       => __( 'OPcache Interned Strings', 'as-php-checkup' ),
-					'recommended' => 24,
-					'minimum'     => 8,
-					'type'        => 'integer',
-					'description' => __( 'Buffer for interned strings in MB', 'as-php-checkup' ),
-				),
-				'opcache.validate_timestamps' => array(
-					'label'       => __( 'OPcache Validate Timestamps', 'as-php-checkup' ),
-					'recommended' => 1,
-					'minimum'     => 1,
-					'type'        => 'boolean',
-					'description' => __( 'Check file timestamps for updates', 'as-php-checkup' ),
-				),
-				'opcache.revalidate_freq' => array(
-					'label'       => __( 'OPcache Revalidate Frequency', 'as-php-checkup' ),
-					'recommended' => 1,
-					'minimum'     => 2,
-					'type'        => 'integer',
-					'description' => __( 'How often to check for updates (seconds)', 'as-php-checkup' ),
-				),
-				'opcache.save_comments' => array(
-					'label'       => __( 'OPcache Save Comments', 'as-php-checkup' ),
-					'recommended' => 1,
-					'minimum'     => 1,
-					'type'        => 'boolean',
-					'description' => __( 'Save doc comments (required for annotations)', 'as-php-checkup' ),
-				),
-				'opcache.fast_shutdown' => array(
-					'label'       => __( 'OPcache Fast Shutdown', 'as-php-checkup' ),
-					'recommended' => 1,
-					'minimum'     => 1,
-					'type'        => 'boolean',
-					'description' => __( 'Enable fast shutdown for better performance', 'as-php-checkup' ),
-				),
-			),
-			'performance' => array(
-				'realpath_cache_size' => array(
-					'label'       => __( 'Realpath Cache Size', 'as-php-checkup' ),
-					'recommended' => '8192K',
-					'minimum'     => '4096K',
-					'type'        => 'memory',
-					'description' => __( 'Cache for real file paths', 'as-php-checkup' ),
-				),
-				'realpath_cache_ttl' => array(
-					'label'       => __( 'Realpath Cache TTL', 'as-php-checkup' ),
-					'recommended' => 120,
-					'minimum'     => 120,
-					'type'        => 'integer',
-					'description' => __( 'Time to live for realpath cache', 'as-php-checkup' ),
-				),
-				'max_input_nesting_level' => array(
-					'label'       => __( 'Max Input Nesting Level', 'as-php-checkup' ),
-					'recommended' => 256,
-					'minimum'     => 64,
-					'type'        => 'integer',
-					'description' => __( 'Maximum depth of input variable nesting', 'as-php-checkup' ),
-				),
-				'zlib.output_compression' => array(
-					'label'       => __( 'Zlib Output Compression', 'as-php-checkup' ),
-					'recommended' => 'On',
-					'minimum'     => 'Off',
-					'type'        => 'boolean_string',
-					'description' => __( 'Enable output compression for better performance', 'as-php-checkup' ),
-				),
-			),
-		);
+	private function normalize_setting_key( $key ) {
+		return str_replace( array( '_', '.' ), '', strtolower( $key ) );
 	}
 
 	/**
@@ -286,16 +306,21 @@ class AS_PHP_Checkup {
 		$current = array();
 		
 		// Basic settings
-		$current['php_version'] = PHP_VERSION;
 		$current['memory_limit'] = ini_get( 'memory_limit' );
+		$current['max_execution_time'] = ini_get( 'max_execution_time' );
+		$current['max_input_time'] = ini_get( 'max_input_time' );
 		$current['max_input_vars'] = ini_get( 'max_input_vars' );
 		$current['post_max_size'] = ini_get( 'post_max_size' );
 		$current['upload_max_filesize'] = ini_get( 'upload_max_filesize' );
-		$current['max_execution_time'] = ini_get( 'max_execution_time' );
-		$current['max_input_time'] = ini_get( 'max_input_time' );
+		$current['max_file_uploads'] = ini_get( 'max_file_uploads' );
+		$current['allow_url_fopen'] = ini_get( 'allow_url_fopen' );
 		
 		// Session settings
 		$current['session.gc_maxlifetime'] = ini_get( 'session.gc_maxlifetime' );
+		$current['session.save_handler'] = ini_get( 'session.save_handler' );
+		$current['session.cookie_httponly'] = ini_get( 'session.cookie_httponly' );
+		$current['session.use_only_cookies'] = ini_get( 'session.use_only_cookies' );
+		$current['session.cookie_secure'] = ini_get( 'session.cookie_secure' );
 		
 		// OPcache settings
 		$current['opcache.enable'] = ini_get( 'opcache.enable' );
@@ -320,25 +345,32 @@ class AS_PHP_Checkup {
 	 * Check if a value meets requirements
 	 *
 	 * @since 1.0.0
+	 * @version 1.3.1 - Fixed status mapping and integer_inverse type
 	 * @param mixed  $current Current value.
 	 * @param mixed  $recommended Recommended value.
 	 * @param mixed  $minimum Minimum value.
 	 * @param string $type Type of comparison.
-	 * @return string Status: optimal, acceptable, or warning
+	 * @return string Status: ok, warning, or error
 	 */
 	public function check_value( $current, $recommended, $minimum, $type ) {
 		if ( empty( $current ) && 'boolean' !== $type && 'boolean_string' !== $type ) {
-			return 'warning';
+			return 'error';
 		}
 		
 		switch ( $type ) {
-			case 'version':
-				if ( version_compare( $current, $recommended, '>=' ) ) {
-					return 'optimal';
-				} elseif ( version_compare( $current, $minimum, '>=' ) ) {
-					return 'acceptable';
+			case 'string':
+				if ( $current === $recommended ) {
+					return 'ok';
 				}
 				return 'warning';
+				
+			case 'version':
+				if ( version_compare( $current, $recommended, '>=' ) ) {
+					return 'ok';
+				} elseif ( version_compare( $current, $minimum, '>=' ) ) {
+					return 'warning';
+				}
+				return 'error';
 				
 			case 'memory':
 				$current_bytes = $this->convert_to_bytes( $current );
@@ -346,11 +378,11 @@ class AS_PHP_Checkup {
 				$minimum_bytes = $this->convert_to_bytes( $minimum );
 				
 				if ( $current_bytes >= $recommended_bytes ) {
-					return 'optimal';
+					return 'ok';
 				} elseif ( $current_bytes >= $minimum_bytes ) {
-					return 'acceptable';
+					return 'warning';
 				}
-				return 'warning';
+				return 'error';
 				
 			case 'integer':
 				$current_int = intval( $current );
@@ -358,15 +390,30 @@ class AS_PHP_Checkup {
 				$minimum_int = intval( $minimum );
 				
 				if ( $current_int >= $recommended_int ) {
-					return 'optimal';
+					return 'ok';
 				} elseif ( $current_int >= $minimum_int ) {
-					return 'acceptable';
+					return 'warning';
 				}
-				return 'warning';
+				return 'error';
+				
+			case 'integer_inverse': // Lower values are better (like revalidate_freq)
+				$current_int = intval( $current );
+				$recommended_int = intval( $recommended );
+				$minimum_int = intval( $minimum );
+				
+				if ( $current_int <= $recommended_int ) {
+					return 'ok';
+				} elseif ( $current_int <= $minimum_int ) {
+					return 'warning';
+				}
+				return 'error';
 				
 			case 'boolean':
-				if ( $current == $recommended ) {
-					return 'optimal';
+				$current_bool = ( '1' === $current || 1 === $current || true === $current );
+				$recommended_bool = ( '1' === $recommended || 1 === $recommended || true === $recommended );
+				
+				if ( $current_bool === $recommended_bool ) {
+					return 'ok';
 				}
 				return 'warning';
 				
@@ -375,11 +422,15 @@ class AS_PHP_Checkup {
 				$recommended_bool = ( 'On' === $recommended || '1' === $recommended || 1 === $recommended );
 				
 				if ( $current_bool === $recommended_bool ) {
-					return 'optimal';
+					return 'ok';
 				}
 				return 'warning';
 				
 			default:
+				// For unknown types, do simple string comparison
+				if ( $current === $recommended ) {
+					return 'ok';
+				}
 				return 'warning';
 		}
 	}
@@ -388,15 +439,15 @@ class AS_PHP_Checkup {
 	 * Convert memory string to bytes
 	 *
 	 * @since 1.0.0
-	 * @param string $value Memory value string.
-	 * @return int Bytes
+	 * @param string $value Memory value.
+	 * @return int
 	 */
-	public function convert_to_bytes( $value ) {
-		$value = trim( $value );
-		if ( empty( $value ) ) {
-			return 0;
+	private function convert_to_bytes( $value ) {
+		if ( is_numeric( $value ) ) {
+			return intval( $value );
 		}
 		
+		$value = trim( $value );
 		$last = strtolower( $value[ strlen( $value ) - 1 ] );
 		$value = intval( $value );
 		
@@ -419,6 +470,7 @@ class AS_PHP_Checkup {
 	 * Get all check results
 	 *
 	 * @since 1.0.0
+	 * @version 1.3.1 - Added status counts
 	 * @return array
 	 */
 	public function get_check_results() {
@@ -430,8 +482,11 @@ class AS_PHP_Checkup {
 		
 		foreach ( $this->recommended_settings as $category => $settings ) {
 			$results[ $category ] = array(
-				'label' => $this->get_category_label( $category ),
-				'items' => array(),
+				'label'  => $this->get_category_label( $category ),
+				'items'  => array(),
+				'passed' => 0,
+				'warnings' => 0,
+				'failed' => 0,
 			);
 			
 			foreach ( $settings as $key => $config ) {
@@ -443,13 +498,39 @@ class AS_PHP_Checkup {
 					$config['type']
 				);
 				
+				// Update status counts
+				if ( 'ok' === $status ) {
+					$results[ $category ]['passed']++;
+				} elseif ( 'warning' === $status ) {
+					$results[ $category ]['warnings']++;
+				} elseif ( 'error' === $status ) {
+					$results[ $category ]['failed']++;
+				}
+				
 				// Add source information if from plugin
 				$source = '';
 				if ( isset( $this->plugin_requirements['sources'][ $key ] ) ) {
 					$source = implode( ', ', $this->plugin_requirements['sources'][ $key ] );
 				}
 				
+				// Prepare message based on status
+				$message = '';
+				if ( 'warning' === $status || 'error' === $status ) {
+					if ( 'integer_inverse' === $config['type'] ) {
+						$message = sprintf( 
+							__( 'Should be %s or lower', 'as-php-checkup' ), 
+							$config['recommended'] 
+						);
+					} else {
+						$message = sprintf( 
+							__( 'Should be at least %s', 'as-php-checkup' ), 
+							$config['minimum'] 
+						);
+					}
+				}
+				
 				$results[ $category ]['items'][ $key ] = array(
+					'setting'     => $key,
 					'label'       => $config['label'],
 					'current'     => $current_value,
 					'recommended' => $config['recommended'],
@@ -458,9 +539,13 @@ class AS_PHP_Checkup {
 					'description' => $config['description'],
 					'type'        => $config['type'],
 					'source'      => $source,
+					'message'     => $message,
 				);
 			}
 		}
+		
+		// Update last check time
+		update_option( 'as_php_checkup_last_check', current_time( 'timestamp' ) );
 		
 		return $results;
 	}
@@ -484,6 +569,36 @@ class AS_PHP_Checkup {
 	}
 
 	/**
+	 * Get health score
+	 *
+	 * @since 1.0.0
+	 * @return int
+	 */
+	public function get_health_score() {
+		$results = $this->get_check_results();
+		$total_checks = 0;
+		$passed_checks = 0;
+		$warning_weight = 0.5; // Warnings count as half
+		
+		foreach ( $results as $category ) {
+			foreach ( $category['items'] as $item ) {
+				$total_checks++;
+				if ( 'ok' === $item['status'] ) {
+					$passed_checks++;
+				} elseif ( 'warning' === $item['status'] ) {
+					$passed_checks += $warning_weight;
+				}
+			}
+		}
+		
+		if ( $total_checks === 0 ) {
+			return 100;
+		}
+		
+		return round( ( $passed_checks / $total_checks ) * 100 );
+	}
+
+	/**
 	 * Get system information
 	 *
 	 * @since 1.0.0
@@ -492,76 +607,53 @@ class AS_PHP_Checkup {
 	public function get_system_info() {
 		global $wpdb;
 		
-		$info = array(
-			'wordpress' => array(
-				'version'      => get_bloginfo( 'version' ),
-				'multisite'    => is_multisite(),
-				'memory_limit' => WP_MEMORY_LIMIT,
-				'debug_mode'   => WP_DEBUG,
-				'language'     => get_locale(),
-			),
-			'server' => array(
-				'software'     => isset( $_SERVER['SERVER_SOFTWARE'] ) ? sanitize_text_field( wp_unslash( $_SERVER['SERVER_SOFTWARE'] ) ) : '',
-				'php_version'  => PHP_VERSION,
-				'mysql_version' => $wpdb->db_version(),
-				'max_workers'  => $this->estimate_max_workers(),
-			),
-			'php_extensions' => array(
-				'curl'     => extension_loaded( 'curl' ),
-				'dom'      => extension_loaded( 'dom' ),
-				'exif'     => extension_loaded( 'exif' ),
-				'fileinfo' => extension_loaded( 'fileinfo' ),
-				'hash'     => extension_loaded( 'hash' ),
-				'imagick'  => extension_loaded( 'imagick' ),
-				'json'     => extension_loaded( 'json' ),
-				'mbstring' => extension_loaded( 'mbstring' ),
-				'openssl'  => extension_loaded( 'openssl' ),
-				'pcre'     => extension_loaded( 'pcre' ),
-				'xml'      => extension_loaded( 'xml' ),
-				'zip'      => extension_loaded( 'zip' ),
-			),
+		$system_info = array(
+			'php_version'        => PHP_VERSION,
+			'php_sapi'           => php_sapi_name(),
+			'php_user'           => get_current_user(),
+			'php_ini_path'       => php_ini_loaded_file() ?: 'Not available',
+			'server_software'    => $_SERVER['SERVER_SOFTWARE'] ?? 'Not available',
+			'os'                 => PHP_OS,
+			'architecture'       => php_uname( 'm' ),
+			'database_version'   => $wpdb->db_version(),
+			'wordpress_version'  => get_bloginfo( 'version' ),
+			'loaded_extensions'  => get_loaded_extensions(),
+			'disabled_functions' => ini_get( 'disable_functions' ) ?: 'None',
 		);
 		
-		return $info;
+		return $system_info;
 	}
 
 	/**
-	 * Estimate max PHP workers
+	 * Run full checkup
 	 *
 	 * @since 1.0.0
-	 * @return string
+	 * @return array
 	 */
-	private function estimate_max_workers() {
-		// This is an estimation based on common configurations
-		// Actual value depends on server configuration
-		$memory_limit = $this->convert_to_bytes( ini_get( 'memory_limit' ) );
+	public function run_checkup() {
+		// Clear cache first
+		$this->clear_cache();
 		
-		if ( $memory_limit > 0 ) {
-			// Assume each worker uses around 128MB
-			$estimated = floor( $memory_limit / ( 128 * 1024 * 1024 ) );
-			return $estimated > 0 ? strval( $estimated ) : __( 'Unable to determine', 'as-php-checkup' );
-		}
+		// Get fresh results
+		$results = $this->get_check_results();
 		
-		return __( 'Unable to determine', 'as-php-checkup' );
+		// Cache results
+		set_transient( $this->cache_key, $results, $this->cache_expiration );
+		
+		return $results;
 	}
 
 	/**
-	 * Get plugin requirements
+	 * Clear cache
 	 *
-	 * @since 1.1.0
-	 * @return array
+	 * @since 1.0.0
+	 * @return void
 	 */
-	public function get_plugin_requirements() {
-		return $this->plugin_requirements;
-	}
-
-	/**
-	 * Get recommended settings
-	 *
-	 * @since 1.1.0
-	 * @return array
-	 */
-	public function get_recommended_settings() {
-		return $this->recommended_settings;
+	public function clear_cache() {
+		delete_transient( $this->cache_key );
+		
+		// Also clear plugin analyzer cache
+		$analyzer = AS_PHP_Checkup_Plugin_Analyzer::get_instance();
+		$analyzer->clear_cache();
 	}
 }
